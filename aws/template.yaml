@@ -110,6 +110,8 @@ Resources:
     Properties:
       CodeUri: dist/lambdas/get-matches/
       Handler: index.handler
+      ProvisionedConcurrencyConfig:
+        ProvisionedConcurrentExecutions: 1
       Events:
         Api:
           Type: Api
