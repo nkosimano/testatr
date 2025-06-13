@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 interface RankingPlayer {
@@ -8,8 +8,8 @@ interface RankingPlayer {
   elo_rating: number;
   matches_played: number;
   matches_won: number;
+  skill_level: string;
   rank?: number;
-  previousRank?: number;
   rankChange?: 'up' | 'down' | 'same' | 'new';
   rankChangeValue?: number;
 }
@@ -19,7 +19,7 @@ const RANKINGS_STORAGE_KEY = 'africa-tennis-previous-rankings';
 const fetchRankings = async (): Promise<RankingPlayer[]> => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('user_id, username, elo_rating, matches_played, matches_won')
+    .select('user_id, username, elo_rating, matches_played, matches_won, skill_level')
     .order('elo_rating', { ascending: false });
 
   if (error) {
@@ -35,6 +35,8 @@ const fetchRankings = async (): Promise<RankingPlayer[]> => {
 
 export const useRankings = () => {
   const queryClient = useQueryClient();
+  const saveTimeoutRef = useRef<number | null>(null);
+  const isInitialLoadRef = useRef(true);
 
   // Load previous rankings from localStorage
   const loadPreviousRankings = (): RankingPlayer[] => {
@@ -47,10 +49,19 @@ export const useRankings = () => {
     }
   };
 
-  // Save current rankings to localStorage when component unmounts
+  // Save current rankings to localStorage
   const savePreviousRankings = (rankings: RankingPlayer[]) => {
     try {
-      localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(rankings));
+      // Clear any existing timeout to prevent race conditions
+      if (saveTimeoutRef.current) {
+        window.clearTimeout(saveTimeoutRef.current);
+      }
+      
+      // Use setTimeout to debounce the save operation
+      saveTimeoutRef.current = window.setTimeout(() => {
+        localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(rankings));
+        saveTimeoutRef.current = null;
+      }, 500);
     } catch (error) {
       console.error('Error saving previous rankings:', error);
     }
@@ -59,44 +70,60 @@ export const useRankings = () => {
   const { data: currentRankings = [], ...queryResult } = useQuery({
     queryKey: ['rankings'],
     queryFn: fetchRankings,
+    staleTime: 60000, // 1 minute
+    refetchOnWindowFocus: false,
   });
 
   // Calculate rank changes by comparing with previous rankings
   const rankingsWithChanges = currentRankings.map(player => {
-    const previousRankings = loadPreviousRankings();
+    // Only load previous rankings once on initial load
+    const previousRankings = isInitialLoadRef.current ? loadPreviousRankings() : [];
     const prevPlayer = previousRankings.find(p => p.user_id === player.user_id);
     
     let rankChange: 'up' | 'down' | 'same' | 'new' = 'new';
     let rankChangeValue = 0;
-    let previousRank: number | undefined = undefined;
     
     if (prevPlayer) {
-      previousRank = prevPlayer.rank;
-      
-      if (player.rank < prevPlayer.rank) {
-        rankChange = 'up';
-        rankChangeValue = prevPlayer.rank - player.rank;
-      } else if (player.rank > prevPlayer.rank) {
-        rankChange = 'down';
-        rankChangeValue = player.rank - prevPlayer.rank;
-      } else {
-        rankChange = 'same';
+      if (player.rank && prevPlayer.rank) {
+        if (player.rank < prevPlayer.rank) {
+          rankChange = 'up';
+          rankChangeValue = prevPlayer.rank - player.rank;
+        } else if (player.rank > prevPlayer.rank) {
+          rankChange = 'down';
+          rankChangeValue = player.rank - prevPlayer.rank;
+        } else {
+          rankChange = 'same';
+        }
       }
     }
     
     return {
       ...player,
-      previousRank,
       rankChange,
       rankChangeValue
     };
   });
 
-  // Save rankings when component unmounts
+  // Save rankings when component unmounts or when rankings change
   useEffect(() => {
+    if (currentRankings.length > 0 && !isInitialLoadRef.current) {
+      savePreviousRankings(currentRankings);
+    }
+    
+    // Mark initial load as complete after first render
+    if (isInitialLoadRef.current && currentRankings.length > 0) {
+      isInitialLoadRef.current = false;
+    }
+    
     return () => {
+      // Save on unmount
       if (currentRankings.length > 0) {
         savePreviousRankings(currentRankings);
+      }
+      
+      // Clear any pending timeout
+      if (saveTimeoutRef.current) {
+        window.clearTimeout(saveTimeoutRef.current);
       }
     };
   }, [currentRankings]);
