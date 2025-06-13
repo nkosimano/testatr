@@ -1,53 +1,21 @@
 @echo off
 setlocal
 
-REM --- AWS & Project Configuration ---
+REM --- Set your configuration variables here ---
 set "AWS_REGION=us-east-1"
-set "S3_BUCKET_NAME=africa-tennis-artifacts-nathi-2025"
 set "STACK_NAME=africa-tennis-platform-stack"
-
-REM -- Supabase & Frontend URLs --
 set "SUPABASE_URL=https://ppuqbimzeplznqdchvve.supabase.co"
 set "FRONTEND_URL=https://zp1v56uxy8rdx5ypatb0ockcb9tr6a-oci3--5173--858c0e43.local-credentialless.webcontainer-api.io"
-
-REM -- Supabase Secret Key --
 set "SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwdXFiaW16ZXBsem5xZGNodnZlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTYzNzI2MSwiZXhwIjoyMDY1MjEzMjYxfQ.NEfWLgVkb98xlApZ1T6ZeDkh5stIH1rnfs_-bJwYx0U"
+set "SES_EMAIL_SOURCE=noreply@africatennis.com"
 
-echo [INFO] Configuration loaded successfully.
+echo [INFO] Building the SAM application. This may take a moment...
+REM The --use-container flag ensures a clean, consistent build environment.
+call sam build --use-container
+
 echo.
-
-REM --- Step 1: Build the Lambda functions ---
-echo [INFO] Installing dependencies and compiling TypeScript...
-call npm install
-call npm run build
-echo [SUCCESS] Build complete.
-echo.
-
-REM --- Step 2: Create S3 bucket if it doesn't exist ---
-echo [INFO] Checking for S3 bucket: %S3_BUCKET_NAME%...
-aws s3api head-bucket --bucket "%S3_BUCKET_NAME%" --region "%AWS_REGION%" >nul 2>&1
-if errorlevel 1 (
-    echo [INFO] Bucket not found. Creating new S3 bucket: %S3_BUCKET_NAME%...
-    aws s3 mb "s3://%S3_BUCKET_NAME%" --region "%AWS_REGION%"
-    echo [SUCCESS] S3 bucket created.
-) else (
-    echo [SUCCESS] S3 bucket already exists.
-)
-echo.
-
-REM --- Step 3: Package the application using AWS SAM ---
-echo [INFO] Packaging SAM application...
-call sam package ^
-  --template-file template.yaml ^
-  --output-template-file packaged.yaml ^
-  --s3-bucket "%S3_BUCKET_NAME%"
-echo [SUCCESS] Application packaged.
-echo.
-
-REM --- Step 4: Deploy the application using AWS SAM ---
-echo [INFO] Deploying stack: %STACK_NAME%...
+echo [INFO] Deploying the built application to AWS...
 call sam deploy ^
-  --template-file packaged.yaml ^
   --stack-name "%STACK_NAME%" ^
   --capabilities CAPABILITY_IAM ^
   --region "%AWS_REGION%" ^
@@ -55,10 +23,11 @@ call sam deploy ^
     SupabaseUrl="%SUPABASE_URL%" ^
     SupabaseServiceRoleKey="%SUPABASE_SERVICE_ROLE_KEY%" ^
     FrontendUrl="%FRONTEND_URL%" ^
-    SesEmailSource="noreply@africatennis.com"
-    
-echo [SUCCESS] Deployment complete! Check your AWS CloudFormation console for status.
+    SesEmailSource="%SES_EMAIL_SOURCE%" ^
+  --no-confirm-changeset
+
 echo.
+echo [SUCCESS] Deployment complete! Your changes should be live.
 
 endlocal
 pause
