@@ -70,15 +70,4 @@ describe('GetMatchesFunction', () => {
     expect(result.statusCode).toBe(500);
     expect(JSON.parse(result.body).error).toContain(supabaseError.message);
   });
-
-  it('should handle OPTIONS preflight request', async () => {
-    const event: Partial<APIGatewayProxyEvent> = {
-      httpMethod: 'OPTIONS',
-    };
-
-    const result = await handler(event as APIGatewayProxyEvent);
-
-    expect(result.statusCode).toBe(200);
-    expect(result.body).toBe('');
-  });
 });

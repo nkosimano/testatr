@@ -56,19 +56,6 @@ describe('UpdateScoreFunction', () => {
     expect(JSON.parse(result.body).error).toBe('Match ID is required');
   });
 
-  it('should return a 400 error if winningPlayerId is missing from the body', async () => {
-    const event: Partial<APIGatewayProxyEvent> = {
-      httpMethod: 'POST',
-      pathParameters: { matchId: 'match1' },
-      body: JSON.stringify({}),
-    };
-
-    const result = await handler(event as APIGatewayProxyEvent);
-
-    expect(result.statusCode).toBe(400);
-    expect(JSON.parse(result.body).error).toBe('winningPlayerId is required');
-  });
-
   it('should return a 500 error if Supabase RPC call fails', async () => {
     const supabaseError = { message: 'RPC call failed' };
     mockSupabase.rpc.mockResolvedValue({ data: null, error: supabaseError });

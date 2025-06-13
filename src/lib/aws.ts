@@ -1,5 +1,6 @@
-// AWS Lambda function URLs and API Gateway endpoints
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.your-domain.com'
+// Use a relative path for the proxy during development.
+// The VITE_API_BASE_URL from .env will be used for production builds.
+const API_BASE_URL = import.meta.env.DEV ? '/api' : (import.meta.env.VITE_API_BASE_URL || '');
 
 interface ApiResponse<T = any> {
   success: boolean
@@ -23,7 +24,8 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
-    const url = `${this.baseUrl}${endpoint}`
+    // The full URL is constructed by combining the base URL and the endpoint.
+    const url = `${this.baseUrl}${endpoint}`;
     
     const headers: HeadersInit = {
       'Content-Type': 'application/json',

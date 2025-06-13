@@ -10,4 +10,8 @@ module.exports = {
   transform: {
     '^.+\\.ts?$': 'ts-jest',
   },
+  // Only find tests in the source __tests__ directory
+  testMatch: [
+    "**/lambdas/__tests__/**/*.test.ts"
+  ],
 };
