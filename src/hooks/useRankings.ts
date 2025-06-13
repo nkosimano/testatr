@@ -36,36 +36,29 @@ const fetchRankings = async (): Promise<RankingPlayer[]> => {
 export const useRankings = () => {
   const queryClient = useQueryClient();
   const saveTimeoutRef = useRef<number | null>(null);
-  const isInitialLoadRef = useRef(true);
+  const initialLoadCompletedRef = useRef(false);
+  const previousRankingsRef = useRef<RankingPlayer[]>([]);
 
-  // Load previous rankings from localStorage
-  const loadPreviousRankings = (): RankingPlayer[] => {
+  // Load previous rankings from localStorage only once at initialization
+  useEffect(() => {
     try {
       const stored = localStorage.getItem(RANKINGS_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : [];
+      if (stored) {
+        previousRankingsRef.current = JSON.parse(stored);
+      }
     } catch (error) {
       console.error('Error loading previous rankings:', error);
-      return [];
     }
-  };
+  }, []);
 
-  // Save current rankings to localStorage
-  const savePreviousRankings = (rankings: RankingPlayer[]) => {
-    try {
-      // Clear any existing timeout to prevent race conditions
+  // Save current rankings to localStorage when component unmounts
+  useEffect(() => {
+    return () => {
       if (saveTimeoutRef.current) {
         window.clearTimeout(saveTimeoutRef.current);
       }
-      
-      // Use setTimeout to debounce the save operation
-      saveTimeoutRef.current = window.setTimeout(() => {
-        localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(rankings));
-        saveTimeoutRef.current = null;
-      }, 500);
-    } catch (error) {
-      console.error('Error saving previous rankings:', error);
-    }
-  };
+    };
+  }, []);
 
   const { data: currentRankings = [], ...queryResult } = useQuery({
     queryKey: ['rankings'],
@@ -76,9 +69,7 @@ export const useRankings = () => {
 
   // Calculate rank changes by comparing with previous rankings
   const rankingsWithChanges = currentRankings.map(player => {
-    // Only load previous rankings once on initial load
-    const previousRankings = isInitialLoadRef.current ? loadPreviousRankings() : [];
-    const prevPlayer = previousRankings.find(p => p.user_id === player.user_id);
+    const prevPlayer = previousRankingsRef.current.find(p => p.user_id === player.user_id);
     
     let rankChange: 'up' | 'down' | 'same' | 'new' = 'new';
     let rankChangeValue = 0;
@@ -106,26 +97,27 @@ export const useRankings = () => {
 
   // Save rankings when component unmounts or when rankings change
   useEffect(() => {
-    if (currentRankings.length > 0 && !isInitialLoadRef.current) {
-      savePreviousRankings(currentRankings);
-    }
-    
-    // Mark initial load as complete after first render
-    if (isInitialLoadRef.current && currentRankings.length > 0) {
-      isInitialLoadRef.current = false;
-    }
-    
-    return () => {
-      // Save on unmount
-      if (currentRankings.length > 0) {
-        savePreviousRankings(currentRankings);
-      }
-      
-      // Clear any pending timeout
+    if (currentRankings.length > 0 && initialLoadCompletedRef.current) {
+      // Clear any existing timeout
       if (saveTimeoutRef.current) {
         window.clearTimeout(saveTimeoutRef.current);
       }
-    };
+      
+      // Save the current rankings to localStorage when navigating away
+      const handleBeforeUnload = () => {
+        localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(currentRankings));
+      };
+      
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(currentRankings));
+      };
+    } else if (currentRankings.length > 0 && !initialLoadCompletedRef.current) {
+      // Mark initial load as complete
+      initialLoadCompletedRef.current = true;
+    }
   }, [currentRankings]);
 
   // Set up real-time subscription to rankings changes
