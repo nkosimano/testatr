@@ -49,7 +49,7 @@ Resources:
   UpdateScoreFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambdas/update-score/
+      CodeUri: dist/lambdas/update-score/
       Handler: index.handler
       Events:
         Api:
@@ -63,7 +63,7 @@ Resources:
   GenerateBracketFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambdas/generate-bracket/
+      CodeUri: dist/lambdas/generate-bracket/
       Handler: index.handler
       Events:
         Api:
@@ -77,7 +77,7 @@ Resources:
   SendNotificationFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambdas/send-notification/
+      CodeUri: dist/lambdas/send-notification/
       Handler: index.handler
       Events:
         Api:
@@ -98,7 +98,7 @@ Resources:
   AggregateStatsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambdas/aggregate-stats/
+      CodeUri: dist/lambdas/aggregate-stats/
       Handler: index.handler
       Events:
         ScheduledEvent:
@@ -112,7 +112,7 @@ Resources:
   GetMatchesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambdas/get-matches/
+      CodeUri: dist/lambdas/get-matches/
       Handler: index.handler
       Events:
         Api:
