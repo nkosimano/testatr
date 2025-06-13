@@ -34,15 +34,35 @@ export const useRankings = () => {
           
         if (profilesError) throw profilesError;
         
+        if (!currentProfiles || currentProfiles.length === 0) {
+          setPlayers([]);
+          setIsLoading(false);
+          return;
+        }
+        
         // Get previous rankings from local storage
         const storedRankingsStr = localStorage.getItem('previous_rankings');
-        const storedRankings = storedRankingsStr ? JSON.parse(storedRankingsStr) : [];
+        let storedRankings: any[] = [];
+        
+        try {
+          if (storedRankingsStr) {
+            storedRankings = JSON.parse(storedRankingsStr);
+          }
+        } catch (e) {
+          console.error('Error parsing stored rankings:', e);
+          // If there's an error parsing, just use an empty array
+          storedRankings = [];
+        }
         
         // Map to create a lookup of previous ranks by user_id
         const previousRankMap = new Map();
-        storedRankings.forEach((player: any, index: number) => {
-          previousRankMap.set(player.user_id, index + 1);
-        });
+        if (Array.isArray(storedRankings)) {
+          storedRankings.forEach((player, index) => {
+            if (player && player.user_id) {
+              previousRankMap.set(player.user_id, index + 1);
+            }
+          });
+        }
         
         // Process current rankings with rank changes
         const rankedPlayers: RankedPlayer[] = currentProfiles.map((profile, index) => {
@@ -79,6 +99,7 @@ export const useRankings = () => {
         });
         
         // Store current rankings for future comparison
+        // Only store the essential data needed for rank comparison
         localStorage.setItem('previous_rankings', JSON.stringify(
           currentProfiles.map(p => ({ 
             user_id: p.user_id, 
