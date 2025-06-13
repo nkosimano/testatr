@@ -38,13 +38,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 500,
         headers: corsHeaders,
-        body: JSON.stringify({ success: false, error: 'Server configuration error' })
+        body: JSON.stringify({ success: false, error: 'Server configuration error: Supabase credentials are not set.' })
       };
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch matches for the user
+    // Fetch matches for the user with a more robust query that explicitly defines the relationships
     const { data, error } = await supabase
       .from('matches')
       .select(`
@@ -57,11 +57,11 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       .or(`player1_id.eq.${userId},player2_id.eq.${userId}`);
 
     if (error) {
-      console.error('Error fetching matches:', error);
+      console.error('Error fetching matches from Supabase:', error);
       return {
         statusCode: 500,
         headers: corsHeaders,
-        body: JSON.stringify({ success: false, error: error.message })
+        body: JSON.stringify({ success: false, error: `Supabase query failed: ${error.message}` })
       };
     }
 
@@ -72,11 +72,12 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       body: JSON.stringify({ success: true, data })
     };
   } catch (error) {
-    console.error('Unexpected error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    console.error('Unexpected error in handler:', errorMessage);
     return {
       statusCode: 500,
       headers: corsHeaders,
-      body: JSON.stringify({ success: false, error: 'An unexpected error occurred' })
+      body: JSON.stringify({ success: false, error: errorMessage })
     };
   }
 };

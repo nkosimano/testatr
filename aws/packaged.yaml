@@ -31,7 +31,7 @@ Parameters:
   FrontendUrl:
     Type: String
     Description: URL of the frontend application
-    Default: https://africatennis.com
+    Default: http://localhost:5173
 Resources:
   ApiGateway:
     Type: AWS::Serverless::Api
@@ -112,7 +112,7 @@ Resources:
   GetMatchesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://africa-tennis-artifacts-nathi-2025/6d0bfb5db717e9ec66be0ef4d6c2ca1f
+      CodeUri: s3://africa-tennis-artifacts-nathi-2025/00cd7c59c74be3a8be80fd9330a486c0
       Handler: index.handler
       Events:
         Api:
