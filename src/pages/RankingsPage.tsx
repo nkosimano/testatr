@@ -1,5 +1,5 @@
 import React from 'react';
-import { useRankings } from '../hooks/useRankings.ts';
+import { useRankings } from '../hooks/useRankings';
 import { Search, Filter, TrendingUp, TrendingDown, Minus, Trophy, Medal, Award, BarChart3 } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -48,14 +48,8 @@ const RankingsPage: React.FC = () => {
       return sortOrder === 'desc' ? -comparison : comparison;
     });
     
-    // Add rank property
-    return filtered.map((player, index) => ({
-      ...player,
-      rank: index + 1,
-      // Mock rank change for UI demonstration
-      rankChange: Math.random() > 0.5 ? 'up' : Math.random() > 0.5 ? 'down' : 'same',
-      rankChangeValue: Math.floor(Math.random() * 3) + 1
-    }));
+    // Rank is already added in the useRankings hook
+    return filtered;
   }, [players, searchQuery, skillFilter, sortBy, sortOrder]);
   
   const getRankIcon = (rank: number) => {
@@ -79,6 +73,12 @@ const RankingsPage: React.FC = () => {
           <div className="rank-change rank-change-down">
             <TrendingDown size={14} />
             <span>{value}</span>
+          </div>
+        );
+      case 'new':
+        return (
+          <div className="rank-change rank-change-new">
+            <span>NEW</span>
           </div>
         );
       default:
@@ -239,16 +239,24 @@ const RankingsPage: React.FC = () => {
                 <div key={player.user_id} className="rankings-table-row">
                   <div className="rank-col">
                     <div className="rank-display">
-                      {getRankIcon(player.rank)}
+                      {getRankIcon(player.rank!)}
                       <span className="rank-number">#{player.rank}</span>
                     </div>
                   </div>
 
                   <div className="player-col">
                     <div className="player-info">
-                      <div className="player-avatar">
-                        {player.username.charAt(0).toUpperCase()}
-                      </div>
+                      {player.profile_picture_url ? (
+                        <img 
+                          src={player.profile_picture_url} 
+                          alt={player.username} 
+                          className="player-avatar"
+                        />
+                      ) : (
+                        <div className="player-avatar">
+                          {player.username.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div className="player-details">
                         <div className="player-name">{player.username}</div>
                         <div 
@@ -282,7 +290,7 @@ const RankingsPage: React.FC = () => {
                   </div>
 
                   <div className="change-col">
-                    {getRankChangeIcon(player.rankChange, player.rankChangeValue)}
+                    {getRankChangeIcon(player.rankChange!, player.rankChangeValue || 0)}
                   </div>
                 </div>
               );
