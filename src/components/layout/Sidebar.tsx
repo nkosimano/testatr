@@ -102,9 +102,17 @@ const Sidebar: React.FC = () => {
           >
             <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center">
-                <div className="player-avatar w-10 h-10 text-sm">
-                  {profile?.username?.charAt(0).toUpperCase() || 'U'}
-                </div>
+                {profile.profile_picture_url ? (
+                  <img 
+                    src={profile.profile_picture_url} 
+                    alt={profile.username} 
+                    className="player-avatar w-10 h-10"
+                  />
+                ) : (
+                  <div className="player-avatar w-10 h-10 text-sm">
+                    {profile?.username?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                )}
                 <div className="ml-3">
                   <div className="text-sm font-medium" style={{ color: 'var(--text-standard)' }}>{profile?.username || 'User'}</div>
                   <div className="text-xs" style={{ color: 'var(--text-subtle)' }}>Rating: {profile?.elo_rating || 1200}</div>
