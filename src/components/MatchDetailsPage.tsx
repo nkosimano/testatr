@@ -18,9 +18,9 @@ import {
   Star
 } from 'lucide-react';
 import { Match } from '../types';
-import { StatisticsService } from '../services/StatisticsService';
 import { useAuthStore } from '../stores/authStore';
 import MatchRequestActions from './matches/MatchRequestActions';
+import LoadingSpinner from './LoadingSpinner';
 
 interface MatchDetailsPageProps {
   match: Match;
@@ -74,6 +74,7 @@ const MatchDetailsPage: React.FC<MatchDetailsPageProps> = ({
   // Determine which player is the current user and which is the opponent
   const isUserChallenger = match.challengerId === user?.id;
   const opponent = isUserChallenger ? match.player2 : match.player1;
+  const currentUser = isUserChallenger ? match.player1 : match.player2;
 
   const matchDate = new Date(match.date);
   const isCompleted = match.status === 'completed';
@@ -86,9 +87,6 @@ const MatchDetailsPage: React.FC<MatchDetailsPageProps> = ({
     setIsLoading(true);
     
     try {
-      // Try to load real statistics if available
-      let detailedStats = null;
-      
       // Set player profiles from match data
       setPlayer1Profile({
         name: match.player1?.username || 'Player 1',
@@ -195,10 +193,12 @@ const MatchDetailsPage: React.FC<MatchDetailsPageProps> = ({
       case 'pending':
         return 'var(--warning-orange)';
       case 'confirmed':
+      case 'in_progress':
         return 'var(--quantum-cyan)';
       case 'completed':
         return 'var(--success-green)';
       case 'declined':
+      case 'cancelled':
         return 'var(--error-pink)';
       default:
         return 'var(--text-muted)';
@@ -211,19 +211,50 @@ const MatchDetailsPage: React.FC<MatchDetailsPageProps> = ({
         return 'Pending';
       case 'confirmed':
         return 'Confirmed';
+      case 'in_progress':
+        return 'In Progress';
       case 'completed':
         return 'Completed';
       case 'declined':
         return 'Declined';
+      case 'cancelled':
+        return 'Cancelled';
       default:
-        return status;
+        return status.charAt(0).toUpperCase() + status.slice(1);
     }
+  };
+
+  // Format score for display
+  const getFormattedScore = () => {
+    if (match.challengerScore !== undefined && match.challengedScore !== undefined) {
+      return `${isUserChallenger ? match.challengerScore : match.challengedScore} - ${isUserChallenger ? match.challengedScore : match.challengerScore}`;
+    }
+    
+    if (typeof match.score === 'string') {
+      return match.score;
+    } 
+    
+    if (match.score && typeof match.score === 'object') {
+      try {
+        const sets = match.score.sets || [];
+        if (sets.length === 0) return 'No sets played';
+        
+        return sets.map((set: any) => 
+          `${set.player1_games}-${set.player2_games}`
+        ).join(', ');
+      } catch (err) {
+        console.error('Error formatting score:', err);
+        return 'Score unavailable';
+      }
+    }
+    
+    return 'Score unavailable';
   };
 
   const renderOverview = () => (
     <div className="tournament-details-overview">
       {/* Match Score */}
-      {isCompleted && match.challengerScore !== undefined && match.challengedScore !== undefined && player1Profile && player2Profile && (
+      {isCompleted && player1Profile && player2Profile && (
         <div className="match-score-section">
           <h3 className="match-details-section-title">Final Score</h3>
           <div className="match-score-display">
@@ -272,6 +303,10 @@ const MatchDetailsPage: React.FC<MatchDetailsPageProps> = ({
                 {getStatusText(match.status)}
               </span>
             </div>
+            <div className="match-info-item">
+              <span className="match-info-label">Duration:</span>
+              <span className="match-info-value">2h 15m</span>
+            </div>
           </div>
         </div>
 
@@ -286,8 +321,12 @@ const MatchDetailsPage: React.FC<MatchDetailsPageProps> = ({
               <span className="match-info-value">{match.location}</span>
             </div>
             <div className="match-info-item">
-              <span className="match-info-label">Duration:</span>
-              <span className="match-info-value">2h 15m</span>
+              <span className="match-info-label">Court Type:</span>
+              <span className="match-info-value">
+                {match.location.includes('grass') ? 'Grass' : 
+                 match.location.includes('clay') ? 'Clay' : 
+                 match.location.includes('hard') ? 'Hard' : 'Standard'}
+              </span>
             </div>
           </div>
         </div>
@@ -531,6 +570,8 @@ const MatchDetailsPage: React.FC<MatchDetailsPageProps> = ({
               {event.type === 'break' && <Target size={16} />}
               {event.type === 'set' && <Trophy size={16} />}
               {event.type === 'game' && <Play size={16} />}
+              {event.type === 'point' && <Activity size={16} />}
+              {event.type === 'error' && <Activity size={16} />}
             </div>
             <div className="timeline-content">
               <div className="timeline-header">
@@ -592,7 +633,7 @@ const MatchDetailsPage: React.FC<MatchDetailsPageProps> = ({
           
           <div className="match-details-title-section">
             <h1 className="match-details-title">
-              {user?.username} vs {opponent.username}
+              {currentUser?.username || 'You'} vs {opponent.username}
             </h1>
             <div 
               className="match-details-status"
@@ -642,8 +683,7 @@ const MatchDetailsPage: React.FC<MatchDetailsPageProps> = ({
         <div className="match-details-content">
           {isLoading ? (
             <div className="match-details-loading">
-              <div className="loading-spinner"></div>
-              <p>Loading match data...</p>
+              <LoadingSpinner size="large" text="Loading match data..." />
             </div>
           ) : (
             <>
