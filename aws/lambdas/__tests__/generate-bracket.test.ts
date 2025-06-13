@@ -48,6 +48,8 @@ describe('GenerateBracketFunction', () => {
     // Configure specific mock return values for this test case
     fromMocks.tournaments.single.mockResolvedValue({ data: mockTournament, error: null });
     fromMocks.tournament_participants.eq.mockResolvedValue({ data: mockParticipants, error: null });
+    
+    // Correctly mock the chained .update().eq() calls
     fromMocks.tournaments.update.mockReturnValue({
       eq: jest.fn().mockResolvedValue({ error: null }),
     });
