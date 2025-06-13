@@ -1,14 +1,21 @@
-import React, { useState, useMemo } from 'react';
-import { Search, Filter, TrendingUp, TrendingDown, Minus, Trophy, Medal, Award, BarChart3 } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, TrendingUp, TrendingDown, Minus, Trophy, Medal, Award, BarChart3 } from 'lucide-react';
 import { useRankings, RankedPlayer } from '../hooks/useRankings';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const RankingsPage: React.FC = () => {
-  const { players, isLoading, error } = useRankings();
+  const { players, isLoading, error, updateBaseline } = useRankings();
   const [searchQuery, setSearchQuery] = useState('');
   const [skillFilter, setSkillFilter] = useState<'all' | 'beginner' | 'intermediate' | 'advanced' | 'expert'>('all');
   const [sortBy, setSortBy] = useState<'elo_rating' | 'username' | 'matches_played'>('elo_rating');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  useEffect(() => {
+    // When the component unmounts, update the baseline snapshot for the next visit.
+    return () => {
+      updateBaseline();
+    };
+  }, [updateBaseline]);
 
   const filteredAndSortedPlayers = useMemo(() => {
     let filtered = [...players];
@@ -239,7 +246,20 @@ const RankingsPage: React.FC = () => {
 
                   <div className="rating-col">
                     <div className="rating-display">
-                      <span className="rating-value">{player.eloRating}</span>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                        <span className="rating-value">{player.eloRating}</span>
+                        {player.eloChange !== 0 && (
+                          <span 
+                            style={{
+                              color: player.eloChange > 0 ? 'var(--success-green)' : 'var(--error-pink)',
+                              fontSize: '0.8em',
+                              fontWeight: '700',
+                            }}
+                          >
+                            ({player.eloChange > 0 ? '+' : ''}{player.eloChange})
+                          </span>
+                        )}
+                      </div>
                       <span className="rating-label">Rating</span>
                     </div>
                   </div>

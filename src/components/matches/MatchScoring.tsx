@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Trophy, 
   Plus, 
@@ -7,6 +7,7 @@ import {
   CheckCircle,
   ArrowLeft
 } from 'lucide-react';
+import LoadingSpinner from '../LoadingSpinner';
 import { useMatchMutations } from '../../hooks/useMatchMutations';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
@@ -50,32 +51,36 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [confirmEndMatch, setConfirmEndMatch] = useState(false);
-  
+  const [lastPointPlayerId, setLastPointPlayerId] = useState<string | null>(null);
+  const scoreRef = useRef<TennisScore | null>(null);
+
   const { awardPoint, updateMatch } = useMatchMutations(user?.id ?? '');
 
   useEffect(() => {
-    // Initialize score from match data
-    if (match && match.score) {
-      try {
-        const parsedScore =
-          typeof match.score === 'string' ? JSON.parse(match.score) : match.score;
-
-        setScore(parsedScore);
-      } catch (err) {
-        console.error('Error parsing score:', err);
-        setError('Error loading match score');
+    const initializeScore = () => {
+      if (match && match.score) {
+        try {
+          const parsedScore = typeof match.score === 'string' ? JSON.parse(match.score) : match.score;
+          setScore(parsedScore);
+          scoreRef.current = parsedScore;
+        } catch (err) {
+          console.error('Error parsing score:', err);
+          setError('Error loading match score');
+        }
+      } else {
+        const defaultScore = {
+          sets: [],
+          current_game: { player1: '0', player2: '0' },
+          server_id: match.player1_id,
+          is_tiebreak: false,
+        };
+        setScore(defaultScore);
+        scoreRef.current = defaultScore;
       }
-    } else {
-      // Initialize with default score
-      setScore({
-        sets: [],
-        current_game: { player1: '0', player2: '0' },
-        server_id: match.player1_id,
-        is_tiebreak: false,
-      });
-    }
+    };
 
-    // Subscribe to real-time updates for this match
+    initializeScore();
+
     const subscription = supabase
       .channel(`match-${match.id}`)
       .on(
@@ -88,24 +93,29 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
         },
         (payload) => {
           if (payload.new && payload.new.score) {
-            setScore(payload.new.score as TennisScore);
+            const newScore = payload.new.score as TennisScore;
+            setScore(newScore);
 
-            // If match is completed, show success message
             if (payload.new.status === 'completed') {
               setSuccessMessage('Match completed!');
-              setTimeout(() => {
-                onBack();
-              }, 3000);
+              setTimeout(() => onBack(), 3000);
             }
           }
-        },
+        }
       )
       .subscribe();
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [match.id, onBack, match.score, match.player1_id]);
+  }, [match.id, match.player1_id, onBack]);
+
+  useEffect(() => {
+    if (score) {
+      setPointType('point_won');
+      scoreRef.current = score;
+    }
+  }, [score]);
 
   const handleAwardPoint = async (playerId: string) => {
     if (isSubmitting) return;
@@ -119,7 +129,8 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
         winningPlayerId: playerId,
         pointType: pointType,
       });
-      setPointType('point_won'); // Reset point type after successful submission
+      setLastPointPlayerId(playerId);
+      setTimeout(() => setLastPointPlayerId(null), 2000);
     } catch (err: any) {
       console.error('Error awarding point:', err);
       setError(err.message || 'Failed to award point');
@@ -276,8 +287,8 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
               </div>
               
               {/* Current Game */}
-              <div className="text-3xl font-bold font-mono">
-                {score.is_tiebreak ? score.current_game.player1 : score.current_game.player1}
+              <div className={`text-3xl font-bold font-mono transition-all duration-500 ease-in-out ${lastPointPlayerId === match.player1_id ? 'text-success-green scale-125' : ''}`}>
+                {score.current_game.player1}
               </div>
             </div>
             
@@ -334,8 +345,8 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
               </div>
               
               {/* Current Game */}
-              <div className="text-3xl font-bold font-mono">
-                {score.is_tiebreak ? score.current_game.player2 : score.current_game.player2}
+              <div className={`text-3xl font-bold font-mono transition-all duration-500 ease-in-out ${lastPointPlayerId === match.player2_id ? 'text-success-green scale-125' : ''}`}>
+                {score.current_game.player2}
               </div>
             </div>
           </div>
