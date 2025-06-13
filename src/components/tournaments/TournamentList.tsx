@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Trophy, Calendar, MapPin, Users, Plus, Search, Filter } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useTournaments } from '../../hooks/useTournaments';

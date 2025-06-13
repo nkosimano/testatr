@@ -62,6 +62,7 @@ const AppRoutes = ({ user }: { user: any }) => {
               <Route path="/matches" element={<MatchesPage />} />
               <Route path="/matches/:matchId" element={<MatchDetailPage />} />
               <Route path="/tournaments" element={<TournamentsPage />} />
+              <Route path="/tournaments/:tournamentId" element={<TournamentsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/rankings" element={<RankingsPage />} />
               <Route path="/umpire" element={<UmpirePage />} />
