@@ -21,19 +21,26 @@ const MatchCard: React.FC<MatchCardProps> = ({
   // Determine which player is the opponent based on the current user ID
   const isChallenger = match.challengerId === currentUserId;
   const opponentProfile = isChallenger ? match.player2 : match.player1;
+  const currentUserProfile = isChallenger ? match.player1 : match.player2;
   
   const matchDate = new Date(match.date);
   const isCompleted = match.status === 'completed';
+  const isPending = match.status === 'pending';
+  const isConfirmed = match.status === 'confirmed';
+  const isInProgress = match.status === 'in_progress';
+  const isCancelled = match.status === 'cancelled' || match.status === 'declined';
   
   const getStatusColor = (status: Match['status']) => {
     switch (status) {
       case 'pending':
         return 'var(--warning-orange)';
       case 'confirmed':
+      case 'in_progress':
         return 'var(--quantum-cyan)';
       case 'completed':
         return 'var(--success-green)';
       case 'declined':
+      case 'cancelled':
         return 'var(--error-pink)';
       default:
         return 'var(--text-muted)';
@@ -46,12 +53,16 @@ const MatchCard: React.FC<MatchCardProps> = ({
         return 'Pending';
       case 'confirmed':
         return 'Confirmed';
+      case 'in_progress':
+        return 'In Progress';
       case 'completed':
         return 'Completed';
       case 'declined':
         return 'Declined';
+      case 'cancelled':
+        return 'Cancelled';
       default:
-        return status;
+        return status.charAt(0).toUpperCase() + status.slice(1);
     }
   };
 
@@ -75,17 +86,29 @@ const MatchCard: React.FC<MatchCardProps> = ({
     }
     return '';
   };
+
   if (!opponentProfile) {
     return null;
   }
+
+  // Check if the match is in the past but not completed
+  const isPastMatch = new Date(match.date) < new Date() && !isCompleted && !isInProgress;
 
   return (
     <div className="card" onClick={onViewDetails ? () => onViewDetails() : undefined} style={{ cursor: onViewDetails ? 'pointer' : 'default' }}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="player-avatar text-sm">
-            {opponentProfile.username.charAt(0).toUpperCase()}
-          </div>
+          {opponentProfile.profile_picture_url ? (
+            <img 
+              src={opponentProfile.profile_picture_url} 
+              alt={opponentProfile.username} 
+              className="player-avatar text-sm"
+            />
+          ) : (
+            <div className="player-avatar text-sm">
+              {opponentProfile.username.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div>
             <h3 className="font-semibold" style={{ color: 'var(--text-standard)' }}>
               vs {opponentProfile.username}
@@ -117,19 +140,12 @@ const MatchCard: React.FC<MatchCardProps> = ({
         </div>
       </div>
 
-      {isCompleted && match.challengerScore !== undefined && match.challengedScore !== undefined && (
+      {isCompleted && match.score && (
         <div className="border-t pt-4 mb-4" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center justify-between">
             <div className="text-sm" style={{ color: 'var(--text-subtle)' }}>Final Score:</div> 
             <div className="font-mono font-bold" style={{ color: 'var(--text-standard)' }}>
-              {isChallenger 
-                ? (match.challengerScore && match.challengedScore 
-                   ? `${match.challengerScore} - ${match.challengedScore}` 
-                   : getFormattedScore())
-                : (match.challengedScore && match.challengerScore 
-                   ? `${match.challengedScore} - ${match.challengerScore}` 
-                   : getFormattedScore())
-              }
+              {getFormattedScore()}
             </div>
           </div>
           {match.winner && (
@@ -146,9 +162,8 @@ const MatchCard: React.FC<MatchCardProps> = ({
         </div>
       )}
 
-      {/* Show report score button for the challenger if match is pending */}
       {/* Show report score button for confirmed or in_progress matches */}
-      {(match.status === 'pending' || match.status === 'in_progress' || match.status === 'confirmed') && (
+      {(match.status === 'in_progress' || match.status === 'confirmed' || isPastMatch) && (
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -162,14 +177,14 @@ const MatchCard: React.FC<MatchCardProps> = ({
       )}
       
       {/* Show accept/decline buttons for the challenged player if match is pending */}
-      {match.status === 'pending' && !isChallenger && (
+      {isPending && !isChallenger && (
         <MatchRequestActions 
           match={match} 
           onActionComplete={onActionComplete} 
         />
       )}
       
-      {!isCompleted && match.status !== 'pending' && onViewDetails && (
+      {!isCompleted && !isPending && !isCancelled && onViewDetails && (
         <button
           onClick={(e) => {
             e.stopPropagation();

@@ -19,7 +19,7 @@ export const MatchList: React.FC = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const { user } = useAuthStore();
-  const { data: rawMatches = [], isLoading } = useMatches(user?.id);
+  const { data: rawMatches = [], isLoading, error, refetch } = useMatches(user?.id);
   const navigate = useNavigate();
 
   const matches: Match[] = useMemo(() => {
@@ -70,8 +70,8 @@ export const MatchList: React.FC = () => {
       );
     }
 
-    // Exclude pending matches from the main list, they are shown in the Dashboard
-    return filtered.filter((match) => match.status !== 'pending');
+    // Sort by date (newest first)
+    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [matches, searchQuery, statusFilter, timeFilter]);
 
   const upcomingMatches = useMemo(() => {
@@ -80,6 +80,11 @@ export const MatchList: React.FC = () => {
       .filter((match) => new Date(match.date) > now && (match.status === 'pending' || match.status === 'in_progress'))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [matches]);
+
+  const pendingMatches = useMemo(() => {
+    if (!user) return [];
+    return matches.filter(match => match.status === 'pending' && match.challengedId === user.id);
+  }, [matches, user]);
 
   const handleReportScore = (match: Match) => {
     setSelectedMatch(match);
@@ -131,6 +136,29 @@ export const MatchList: React.FC = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="match-list-page">
+        <div className="match-list-container">
+          <div className="text-center py-12">
+            <h3 className="text-lg font-medium" style={{ color: 'var(--error-pink)' }}>
+              Error loading matches: {error instanceof Error ? error.message : 'Unknown error'}
+            </h3>
+            <p className="mt-4" style={{ color: 'var(--text-subtle)' }}>
+              Please try refreshing the page or contact support if the problem persists.
+            </p>
+            <button 
+              onClick={() => refetch()} 
+              className="mt-4 btn btn-primary"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="match-list-page">
       <div className="match-list-container">
@@ -166,7 +194,9 @@ export const MatchList: React.FC = () => {
               onChange={e => setStatusFilter(e.target.value as Match['status'] | 'all')}
             >
               <option value="all">All Statuses</option>
+              <option value="pending">Pending</option>
               <option value="in_progress">In Progress</option>
+              <option value="confirmed">Confirmed</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>
@@ -182,7 +212,30 @@ export const MatchList: React.FC = () => {
           </div>
         </div>
 
-        {timeFilter === 'all' && upcomingMatches.length > 0 && (
+        {/* Pending Match Requests Section */}
+        {pendingMatches.length > 0 && (
+          <section className="match-section">
+            <h2 className="section-title">
+              <Trophy size={22} className="section-title-icon" />
+              Pending Match Requests ({pendingMatches.length})
+            </h2>
+            <div className="match-grid">
+              {pendingMatches.map((match) => (
+                <MatchCard 
+                  key={match.id} 
+                  match={match} 
+                  currentUserId={user?.id || ''} 
+                  onReportScore={() => handleReportScore(match)}
+                  onViewDetails={() => handleViewMatch(match.id)}
+                  onActionComplete={() => refetch()}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Upcoming Matches Section */}
+        {upcomingMatches.length > 0 && (
           <section className="match-section">
             <h2 className="section-title">
               <Clock size={22} className="section-title-icon" />
@@ -205,7 +258,7 @@ export const MatchList: React.FC = () => {
         <section className="match-section">
           <h2 className="section-title">
             <Swords size={22} className="section-title-icon" />
-            {timeFilter === 'all' ? 'Recent Matches' : 'Filtered Matches'}
+            {timeFilter === 'all' ? 'All Matches' : 'Filtered Matches'}
           </h2>
           {filteredMatches.length > 0 ? (
             <div className="match-grid">

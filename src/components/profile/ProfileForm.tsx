@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { User, Camera, Save, X } from 'lucide-react'
+import { User, Camera, Save, X, AlertTriangle } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { supabase } from '../../lib/supabase'
 import LoadingSpinner from '../LoadingSpinner'
@@ -12,7 +12,7 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 
 const profileSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
-  bio: z.string().max(200, 'Bio must be less than 200 characters').optional(),
+  bio: z.string().max(200, 'Bio must be less than 200 characters').optional().nullable(),
   skill_level: z.enum(['beginner', 'intermediate', 'advanced', 'expert']),
 })
 
@@ -23,6 +23,7 @@ export const ProfileForm: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   
   const profile = useAuthStore(state => state.profile)
   const updateProfile = useAuthStore(state => state.updateProfile)
@@ -41,6 +42,13 @@ export const ProfileForm: React.FC = () => {
       skill_level: profile?.skill_level || 'beginner',
     }
   })
+
+  // Set preview URL when profile loads or changes
+  useEffect(() => {
+    if (profile?.profile_picture_url) {
+      setPreviewUrl(profile.profile_picture_url);
+    }
+  }, [profile?.profile_picture_url]);
 
   const watchedBio = watch('bio') || '';
 
@@ -63,6 +71,23 @@ export const ProfileForm: React.FC = () => {
   const handleProfilePictureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !profile) return
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setErrorMessage('Invalid file type. Please upload a JPEG, PNG, GIF, or WebP image.');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage('File too large. Maximum size is 5MB.');
+      return;
+    }
+
+    // Create a preview URL
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
 
     setIsUploading(true)
     setErrorMessage(null)
@@ -89,10 +114,43 @@ export const ProfileForm: React.FC = () => {
       setSuccessMessage('Profile picture updated successfully')
     } catch (err: any) {
       setErrorMessage('Error uploading profile picture: ' + err.message)
+      // Reset preview on error
+      setPreviewUrl(profile.profile_picture_url);
     } finally {
       setIsUploading(false)
     }
   }
+
+  const handleRemoveProfilePicture = async () => {
+    if (!profile || !profile.profile_picture_url) return;
+    
+    setIsUploading(true);
+    setErrorMessage(null);
+    
+    try {
+      // Extract the file path from the URL
+      const url = new URL(profile.profile_picture_url);
+      const pathParts = url.pathname.split('/');
+      const bucketName = pathParts[1]; // 'avatars'
+      const filePath = pathParts.slice(2).join('/'); // The rest of the path
+      
+      // Delete the file from storage
+      const { error: deleteError } = await supabase.storage
+        .from(bucketName)
+        .remove([filePath]);
+        
+      if (deleteError) throw deleteError;
+      
+      // Update profile to remove the URL
+      await updateProfile({ profile_picture_url: null });
+      setPreviewUrl(null);
+      setSuccessMessage('Profile picture removed successfully');
+    } catch (err: any) {
+      setErrorMessage('Error removing profile picture: ' + err.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   if (!profile) {
     return (
@@ -126,8 +184,9 @@ export const ProfileForm: React.FC = () => {
             )}
 
             {errorMessage && (
-              <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4 mb-6">
-                {errorMessage}
+              <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4 mb-6 flex items-center gap-2">
+                <AlertTriangle size={20} className="flex-shrink-0" />
+                <span>{errorMessage}</span>
               </div>
             )}
           </div>
@@ -136,9 +195,9 @@ export const ProfileForm: React.FC = () => {
             {/* Profile Picture */}
             <div className="profile-picture-section">
               <div className="profile-picture-container">
-                {profile.profile_picture_url ? (
+                {previewUrl ? (
                   <img
-                    src={profile.profile_picture_url}
+                    src={previewUrl}
                     alt={profile.username}
                     className="profile-picture"
                   />
@@ -167,6 +226,15 @@ export const ProfileForm: React.FC = () => {
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
                   Uploading...
                 </div>
+              )}
+              {previewUrl && (
+                <button
+                  onClick={handleRemoveProfilePicture}
+                  className="mt-2 text-sm text-red-600 hover:text-red-800"
+                  disabled={isUploading}
+                >
+                  Remove photo
+                </button>
               )}
             </div>
 
@@ -227,6 +295,31 @@ export const ProfileForm: React.FC = () => {
                 <p className="mt-1 text-sm text-gray-500">
                   {watchedBio.length}/200 characters
                 </p>
+              </div>
+
+              {/* Stats Display */}
+              <div className="profile-form-group">
+                <label className="profile-form-label">
+                  Your Stats
+                </label>
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 grid grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{profile.elo_rating}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Rating</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{profile.matches_played}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Matches</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {profile.matches_played > 0 
+                        ? ((profile.matches_won / profile.matches_played) * 100).toFixed(1) 
+                        : '0.0'}%
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">Win Rate</div>
+                  </div>
+                </div>
               </div>
 
               {/* Action Buttons */}

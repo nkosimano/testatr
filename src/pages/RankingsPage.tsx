@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Filter, TrendingUp, TrendingDown, Minus, Trophy, Medal, Award, BarChart3 } from 'lucide-react';
 import { useRankings } from '../hooks/useRankings';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -8,8 +8,25 @@ const RankingsPage: React.FC = () => {
   const [skillFilter, setSkillFilter] = useState<'all' | 'beginner' | 'intermediate' | 'advanced' | 'expert'>('all');
   const [sortBy, setSortBy] = useState<'elo_rating' | 'username' | 'matches_played'>('elo_rating');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  const { rankings, isLoading, error } = useRankings();
+  const { rankings, isLoading, error, refetch } = useRankings();
+
+  // Set initial load to false after first render
+  useEffect(() => {
+    if (!isLoading && isInitialLoad) {
+      setIsInitialLoad(false);
+    }
+  }, [isLoading, isInitialLoad]);
+
+  // Periodically refetch rankings to ensure they're up to date
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      refetch();
+    }, 60000); // Refetch every minute
+
+    return () => clearInterval(intervalId);
+  }, [refetch]);
 
   const filteredAndSortedPlayers = useMemo(() => {
     if (!rankings) return [];
@@ -103,7 +120,7 @@ const RankingsPage: React.FC = () => {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && isInitialLoad) {
     return (
       <div className="rankings-page">
         <LoadingSpinner size="large" text="Loading rankings..." subtext="Retrieving player data" />
@@ -121,6 +138,12 @@ const RankingsPage: React.FC = () => {
           <p className="mt-4" style={{ color: 'var(--text-subtle)' }}>
             Please try refreshing the page or contact support if the problem persists.
           </p>
+          <button 
+            onClick={() => refetch()} 
+            className="mt-4 btn btn-primary"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -228,9 +251,17 @@ const RankingsPage: React.FC = () => {
 
                   <div className="player-col">
                     <div className="player-info">
-                      <div className="player-avatar">
-                        {player.username.charAt(0).toUpperCase()}
-                      </div>
+                      {player.profile_picture_url ? (
+                        <img 
+                          src={player.profile_picture_url} 
+                          alt={player.username} 
+                          className="player-avatar"
+                        />
+                      ) : (
+                        <div className="player-avatar">
+                          {player.username.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div className="player-details">
                         <div className="player-name">{player.username}</div>
                         <div 

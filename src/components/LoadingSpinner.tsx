@@ -4,12 +4,14 @@ interface LoadingSpinnerProps {
   size?: 'small' | 'medium' | 'large';
   text?: string;
   subtext?: string;
+  color?: string;
 }
 
 const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ 
   size = 'medium', 
   text = 'Loading...',
-  subtext
+  subtext,
+  color
 }) => {
   const spinnerSizes = {
     small: 'w-6 h-6',
@@ -23,9 +25,14 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
     large: 'text-xl'
   };
 
+  const spinnerColor = color || 'var(--quantum-cyan)';
+
   return (
     <div className="flex flex-col items-center justify-center p-8 text-center">
-      <div className={`loading-spinner ${spinnerSizes[size]} mb-4`}></div>
+      <div 
+        className={`loading-spinner ${spinnerSizes[size]} mb-4`}
+        style={{ borderTopColor: spinnerColor }}
+      ></div>
       {text && (
         <p className={`${textSizes[size]} font-medium`} style={{ color: 'var(--text-standard)' }}>
           {text}

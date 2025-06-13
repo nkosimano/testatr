@@ -1,21 +1,22 @@
 import React, { useState, useMemo } from 'react';
-import { Target, Zap, Trophy, Calendar, ChevronRight, MapPin, Users, Timer, Award, TrendingUp, Eye, Loader } from 'lucide-react';
+import { Target, Zap, Trophy, Calendar, ChevronRight, MapPin, Users, Timer, Award, TrendingUp, Eye } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useMatches } from '../../hooks/useMatches';
 import { useTournaments } from '../../hooks/useTournaments';
 import MatchRequestActions from '../matches/MatchRequestActions';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import CreateMatchModal from '../matches/CreateMatchModal';
 import LoadingSpinner from '../LoadingSpinner';
 import { Match, Tournament } from '../../types';
 
 export const Dashboard: React.FC = () => {
   const { user, profile } = useAuthStore();
-  const { data: rawMatches, isLoading: isLoadingMatches } = useMatches(user?.id);
-  const { tournaments: rawTournaments, isLoading: isLoadingTournaments } = useTournaments();
+  const { data: rawMatches = [], isLoading: isLoadingMatches, error: matchesError } = useMatches(user?.id);
+  const { tournaments: rawTournaments, isLoading: isLoadingTournaments, error: tournamentsError } = useTournaments();
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const navigate = useNavigate();
 
-    const matches: Match[] = useMemo(() => {
+  const matches: Match[] = useMemo(() => {
     if (!rawMatches) return [];
     return rawMatches.map((m: any) => ({
       id: m.id,
@@ -25,7 +26,7 @@ export const Dashboard: React.FC = () => {
       score: m.score,
       player1: m.player1,
       player2: m.player2,
-      winnerProfile: m.winnerProfile,
+      winnerProfile: m.winner,
       challengerId: m.player1_id,
       challengedId: m.player2_id,
       createdAt: m.created_at,
@@ -37,7 +38,7 @@ export const Dashboard: React.FC = () => {
     }));
   }, [rawMatches]);
 
-    const tournaments: Tournament[] = useMemo(() => {
+  const tournaments: Tournament[] = useMemo(() => {
     if (!rawTournaments) return [];
     return rawTournaments.map((t: any) => ({
       id: t.id,
@@ -50,10 +51,10 @@ export const Dashboard: React.FC = () => {
       startDate: t.start_date,
       endDate: t.end_date,
       organizerId: t.organizer_id,
-      registrationDeadline: t.registration_deadline,
+      registrationDeadline: t.registration_deadline || t.start_date,
       maxParticipants: t.max_participants,
-      participantCount: t.participant_count,
-      isRegistered: t.is_registered,
+      participantCount: t.participantCount,
+      isRegistered: t.isRegistered,
       umpireId: t.umpire_id,
       winnerId: t.winner_id,
     }));
@@ -111,6 +112,7 @@ export const Dashboard: React.FC = () => {
     '0.0';
 
   const isLoading = isLoadingMatches || isLoadingTournaments;
+  const hasError = matchesError || tournamentsError;
 
   if (isLoading) {
     return (
@@ -121,6 +123,23 @@ export const Dashboard: React.FC = () => {
             text="Loading dashboard..." 
             subtext="Retrieving your tennis data"
           />
+        </div>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="dashboard-page">
+        <div className="dashboard-container">
+          <div className="text-center py-12">
+            <h3 className="text-lg font-medium" style={{ color: 'var(--error-pink)' }}>
+              Error loading dashboard data
+            </h3>
+            <p className="mt-4" style={{ color: 'var(--text-subtle)' }}>
+              Please try refreshing the page or contact support if the problem persists.
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -158,6 +177,121 @@ export const Dashboard: React.FC = () => {
           <div className="dashboard-stat-card stagger-4">
             <div className="dashboard-stat-value">{winRate}%</div>
             <div className="dashboard-stat-label">Win Rate</div>
+          </div>
+        </div>
+
+        {/* Recent Activity Section */}
+        <div className="dashboard-section stagger-1">
+          <h2 className="dashboard-section-title">
+            <Calendar size={24} className="mr-2" />
+            Recent Activity
+          </h2>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Recent Matches */}
+            <div className="lg:col-span-2">
+              <div className="card">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold" style={{ color: 'var(--text-standard)' }}>Recent Matches</h3>
+                  <Link to="/matches" className="text-sm font-medium flex items-center" style={{ color: 'var(--quantum-cyan)' }}>
+                    View All <ChevronRight size={16} />
+                  </Link>
+                </div>
+                
+                {recentMatches.length > 0 ? (
+                  <div className="space-y-4">
+                    {recentMatches.map((match) => (
+                      <div 
+                        key={match.id} 
+                        className="p-4 rounded-lg block hover:shadow-md transition-shadow cursor-pointer" 
+                        style={{ backgroundColor: 'var(--bg-elevated)' }}
+                        onClick={() => navigate(`/matches/${match.id}`)}
+                      >
+                        <div className="flex justify-between items-center mb-2">
+                          <div className="font-medium" style={{ color: 'var(--text-standard)' }}>
+                            {match.player1?.username || 'Player 1'} vs {match.player2?.username || 'Player 2'}
+                          </div>
+                          <div className="text-xs px-2 py-1 rounded-full" style={{ 
+                            backgroundColor: match.status === 'completed' ? 'rgba(0, 255, 170, 0.1)' : 'rgba(255, 149, 0, 0.1)',
+                            color: match.status === 'completed' ? 'var(--success-green)' : 'var(--warning-orange)'
+                          }}>
+                            {match.status.replace('_', ' ')}
+                          </div>
+                        </div>
+                        <div className="text-sm" style={{ color: 'var(--text-subtle)' }}>
+                          {new Date(match.date).toLocaleDateString()}
+                        </div>
+                        {match.status === 'completed' && match.score && (
+                          <div className="mt-2 font-medium" style={{ color: 'var(--quantum-cyan)' }}>
+                            Score: {getFormattedScore(match.score)}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Trophy size={48} style={{ color: 'var(--text-muted)', margin: '0 auto 1rem' }} />
+                    <p style={{ color: 'var(--text-subtle)' }}>No recent matches found</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Upcoming Tournaments */}
+            <div>
+              <div className="card">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold" style={{ color: 'var(--text-standard)' }}>Upcoming Tournaments</h3>
+                  <Link to="/tournaments" className="text-sm font-medium flex items-center" style={{ color: 'var(--quantum-cyan)' }}>
+                    View All <ChevronRight size={16} />
+                  </Link>
+                </div>
+                
+                {upcomingTournaments.length > 0 ? (
+                  <div className="space-y-4">
+                    {upcomingTournaments.map((tournament) => {
+                      const startDate = new Date(tournament.startDate);
+                      const format = tournament.format?.replace('_', ' ') || '';
+                      
+                      return (
+                        <div 
+                          key={tournament.id} 
+                          className="p-4 rounded-lg block hover:shadow-md transition-shadow cursor-pointer" 
+                          style={{ backgroundColor: 'var(--bg-elevated)' }}
+                          onClick={() => navigate(`/tournaments/${tournament.id}`)}
+                        >
+                          <div className="font-medium mb-2" style={{ color: 'var(--text-standard)' }}>
+                            {tournament.name}
+                          </div>
+                          <div className="text-sm mb-1" style={{ color: 'var(--text-subtle)' }}>
+                            <Calendar size={14} className="inline mr-1" />
+                            {startDate.toLocaleDateString()}
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <div className="text-xs px-2 py-1 rounded-full inline-block capitalize" style={{ 
+                              backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                              color: 'var(--quantum-cyan)'
+                            }}>
+                              {format}
+                            </div>
+                            <div className="text-xs flex items-center" style={{ color: 'var(--text-subtle)' }}>
+                              <Users size={12} className="mr-1" />
+                              {tournament.participantCount || 0}/{tournament.maxParticipants}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Trophy size={48} style={{ color: 'var(--text-muted)', margin: '0 auto 1rem' }} />
+                    <p style={{ color: 'var(--text-subtle)' }}>No upcoming tournaments</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
         

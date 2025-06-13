@@ -13,7 +13,7 @@ export const TournamentList: React.FC = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const user = useAuthStore((state) => state.user);
-  const { tournaments, isLoading, error } = useTournaments();
+  const { tournaments, isLoading, error, refetch } = useTournaments();
   const { registerForTournament } = useTournamentMutations();
   const navigate = useNavigate();
 
@@ -47,14 +47,31 @@ export const TournamentList: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="tournaments-loading">
-        <LoadingSpinner size="large" />
+      <div className="tournaments-container">
+        <LoadingSpinner size="large" text="Loading tournaments..." subtext="Retrieving tournament data" />
       </div>
     );
   }
 
   if (error) {
-    return <div className="tournaments-container">Error loading tournaments.</div>;
+    return (
+      <div className="tournaments-container">
+        <div className="text-center py-12">
+          <h3 className="text-lg font-medium" style={{ color: 'var(--error-pink)' }}>
+            Error loading tournaments: {error instanceof Error ? error.message : 'Unknown error'}
+          </h3>
+          <p className="mt-4" style={{ color: 'var(--text-subtle)' }}>
+            Please try refreshing the page or contact support if the problem persists.
+          </p>
+          <button 
+            onClick={() => refetch()} 
+            className="mt-4 btn btn-primary"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -89,6 +106,7 @@ export const TournamentList: React.FC = () => {
           >
             <option value="all">All Statuses</option>
             <option value="registration_open">Registration Open</option>
+            <option value="registration_closed">Registration Closed</option>
             <option value="in_progress">In Progress</option>
             <option value="completed">Completed</option>
           </select>
@@ -129,14 +147,18 @@ export const TournamentList: React.FC = () => {
                             ? 'rgba(0, 255, 170, 0.2)'
                             : tournament.status === 'in_progress'
                             ? 'rgba(0, 212, 255, 0.2)'
-                            : 'rgba(255, 149, 0, 0.2)'
+                            : tournament.status === 'registration_closed'
+                            ? 'rgba(255, 149, 0, 0.2)'
+                            : 'rgba(160, 174, 192, 0.2)'
                         }`,
                         color:
                           tournament.status === 'registration_open'
                             ? 'var(--success-green)'
                             : tournament.status === 'in_progress'
                             ? 'var(--quantum-cyan)'
-                            : 'var(--warning-orange)',
+                            : tournament.status === 'registration_closed'
+                            ? 'var(--warning-orange)'
+                            : 'var(--text-muted)',
                       }}
                     >
                       {formatStatus(tournament.status)}
@@ -148,7 +170,7 @@ export const TournamentList: React.FC = () => {
                 <div className="tournament-card-info">
                   <div className="tournament-card-info-item">
                     <Calendar size={14} />
-                    <span>{new Date(tournament.start_date).toLocaleDateString()}</span>
+                    <span>{new Date(tournament.startDate).toLocaleDateString()}</span>
                   </div>
                   <div className="tournament-card-info-item">
                     <MapPin size={14} />
@@ -156,7 +178,11 @@ export const TournamentList: React.FC = () => {
                   </div>
                   <div className="tournament-card-info-item">
                     <Users size={14} />
-                    <span>{tournament.participantCount}/{tournament.max_participants}</span>
+                    <span>{tournament.participantCount}/{tournament.maxParticipants}</span>
+                  </div>
+                  <div className="tournament-card-info-item">
+                    <Trophy size={14} />
+                    <span>{tournament.format.replace('_', ' ')}</span>
                   </div>
                 </div>
 
@@ -180,7 +206,7 @@ export const TournamentList: React.FC = () => {
 
                   {tournament.status === 'registration_open' &&
                     !tournament.isRegistered &&
-                    (tournament.participantCount ?? 0) < tournament.max_participants && (
+                    (tournament.participantCount ?? 0) < tournament.maxParticipants && (
                       <button
                         onClick={() => handleRegister(tournament.id)}
                         className="tournament-card-btn tournament-card-btn-primary"

@@ -25,6 +25,12 @@
   min-height: 36px;
 }
 
+.btn-lg {
+  padding: 1rem 2rem;
+  font-size: 1.125rem;
+  min-height: 52px;
+}
+
 .btn-primary {
   background: var(--gradient-primary);
   color: var(--text-inverse);
@@ -73,6 +79,28 @@
 .btn-ghost:hover {
   background: var(--hover-bg);
   border-color: var(--border-primary);
+}
+
+.btn-danger {
+  background: var(--gradient-error);
+  color: var(--text-inverse);
+}
+
+.btn-danger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(255, 51, 102, 0.3);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-icon {
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
 /* Enhanced Button Glare Effect */
@@ -152,6 +180,31 @@
   resize: vertical;
 }
 
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.form-input:disabled,
+.form-select:disabled,
+.form-textarea:disabled {
+  background-color: var(--bg-elevated);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.form-error {
+  color: var(--error-pink);
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+.form-hint {
+  color: var(--text-subtle);
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
 /* Modals */
 .modal-backdrop {
   position: fixed;
@@ -166,6 +219,7 @@
   justify-content: center;
   z-index: 50;
   padding: 1rem;
+  animation: fade-in 0.3s ease;
 }
 
 .modal {
@@ -181,10 +235,11 @@
   box-shadow: 0 20px 60px var(--shadow-elevated);
   position: relative;
   margin: 1rem;
+  animation: scale-in 0.3s ease;
 }
 
 .modal-large {
-  max-width: 600px;
+  max-width: 800px;
 }
 
 .modal-close {
@@ -196,7 +251,7 @@
   color: var(--text-subtle);
   cursor: pointer;
   padding: 0.5rem;
-  border-radius: 0.25rem;
+  border-radius: 0.375rem;
   transition: all 0.2s ease;
   z-index: 10;
 }
@@ -224,6 +279,18 @@
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto;
+}
+
+.loading-spinner.w-4 {
+  width: 1rem;
+  height: 1rem;
+  border-width: 0.125rem;
+}
+
+.loading-spinner.w-5 {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-width: 0.125rem;
 }
 
 .loading-spinner.w-6 {
@@ -262,19 +329,20 @@
   padding-left: 3rem;
 }
 
-/* Player Components */
+/* Player Avatar */
 .player-avatar {
-  width: 60px;
-  height: 60px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: var(--gradient-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--text-inverse);
   flex-shrink: 0;
+  object-fit: cover;
 }
 
 /* Utility Classes */
@@ -294,6 +362,44 @@
   border: 0;
 }
 
+/* Animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slide-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Focus states for accessibility */
 .btn:focus,
 .form-input:focus,
@@ -303,9 +409,43 @@
   outline-offset: 2px;
 }
 
-/* Animation for spinner */
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .modal {
+    padding: 1.5rem;
+    margin: 0.5rem;
+    max-width: calc(100% - 2rem);
+  }
+  
+  .form-group {
+    margin-bottom: 1rem;
+  }
+  
+  .btn {
+    padding: 0.625rem 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal {
+    padding: 1.25rem;
+    margin: 0.25rem;
+  }
+  
+  .card {
+    padding: 1.25rem;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .btn::before,
+  .btn-glare::before,
+  .modal,
+  .modal-backdrop,
+  .card,
+  .loading-spinner {
+    animation: none !important;
+    transition: none !important;
   }
 }

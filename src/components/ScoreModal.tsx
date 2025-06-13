@@ -1,28 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Trophy, Target, Plus, Minus } from 'lucide-react';
 import { Match } from '../types';
 
 interface ScoreModalProps {
+  isOpen: boolean;
   match: Match;
   onSubmit: (challengerScore: number, challengedScore: number) => void;
   onClose: () => void;
 }
 
-const ScoreModal: React.FC<ScoreModalProps> = ({ match, onSubmit, onClose }) => {
+const ScoreModal: React.FC<ScoreModalProps> = ({ isOpen, match, onSubmit, onClose }) => {
   const [challengerScore, setChallengerScore] = useState(0);
   const [challengedScore, setChallengedScore] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Get player names from the match object
   const challenger = match.player1;
   const challenged = match.player2;
   
+  // Reset scores when modal opens with a new match
+  useEffect(() => {
+    if (isOpen) {
+      setChallengerScore(0);
+      setChallengedScore(0);
+      setError(null);
+    }
+  }, [isOpen, match.id]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate scores
     if (challengerScore === challengedScore) {
-      alert('Scores cannot be tied. Please enter different scores.');
+      setError('Scores cannot be tied. Please enter different scores.');
       return;
     }
-    onSubmit(challengerScore, challengedScore);
+    
+    if (challengerScore < 0 || challengedScore < 0) {
+      setError('Scores cannot be negative.');
+      return;
+    }
+    
+    if (challengerScore > 999 || challengedScore > 999) {
+      setError('Scores cannot exceed 999.');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    setError(null);
+    
+    try {
+      onSubmit(challengerScore, challengedScore);
+    } catch (err) {
+      console.error('Error submitting score:', err);
+      setError('Failed to submit score. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   const adjustScore = (player: 'challenger' | 'challenged', adjustment: number) => {
@@ -31,6 +65,9 @@ const ScoreModal: React.FC<ScoreModalProps> = ({ match, onSubmit, onClose }) => 
     } else {
       setChallengedScore(Math.max(0, Math.min(999, challengedScore + adjustment)));
     }
+    
+    // Clear error when scores are adjusted
+    if (error) setError(null);
   };
 
   const getWinnerStyle = () => {
@@ -42,7 +79,7 @@ const ScoreModal: React.FC<ScoreModalProps> = ({ match, onSubmit, onClose }) => 
 
   const winnerStyles = getWinnerStyle();
 
-  if (!challenger?.username || !challenged?.username) return null;
+  if (!isOpen || !challenger?.username || !challenged?.username) return null;
 
   return (
     <div className="modal-backdrop fade-in">
@@ -65,9 +102,17 @@ const ScoreModal: React.FC<ScoreModalProps> = ({ match, onSubmit, onClose }) => 
           {/* Player Names */}
           <div className="grid grid-cols-3 gap-4 items-center mb-4">
             <div className="text-center">
-              <div className="player-avatar mx-auto mb-2">
-                {challenger?.username.charAt(0).toUpperCase() || 'P1'}
-              </div>
+              {challenger.profile_picture_url ? (
+                <img 
+                  src={challenger.profile_picture_url} 
+                  alt={challenger.username} 
+                  className="player-avatar mx-auto mb-2"
+                />
+              ) : (
+                <div className="player-avatar mx-auto mb-2">
+                  {challenger?.username.charAt(0).toUpperCase() || 'P1'}
+                </div>
+              )}
               <p className="font-medium text-sm" style={{ color: 'var(--text-standard)', ...winnerStyles.challenger }}>
                 {challenger?.username || 'Player 1'}
               </p>
@@ -80,9 +125,17 @@ const ScoreModal: React.FC<ScoreModalProps> = ({ match, onSubmit, onClose }) => 
             </div>
 
             <div className="text-center">
-              <div className="player-avatar mx-auto mb-2">
-                {challenged?.username.charAt(0).toUpperCase() || 'P2'}
-              </div>
+              {challenged.profile_picture_url ? (
+                <img 
+                  src={challenged.profile_picture_url} 
+                  alt={challenged.username} 
+                  className="player-avatar mx-auto mb-2"
+                />
+              ) : (
+                <div className="player-avatar mx-auto mb-2">
+                  {challenged?.username.charAt(0).toUpperCase() || 'P2'}
+                </div>
+              )}
               <p className="font-medium text-sm" style={{ color: 'var(--text-standard)', ...winnerStyles.challenged }}>
                 {challenged?.username || 'Player 2'}
               </p>
@@ -178,11 +231,11 @@ const ScoreModal: React.FC<ScoreModalProps> = ({ match, onSubmit, onClose }) => 
             <p className="text-sm text-center mb-3" style={{ color: 'var(--text-subtle)' }}>
               Quick Add Points:
             </p>
-            <div className="flex justify-center gap-2 mb-4">
+            <div className="flex flex-wrap justify-center gap-2 mb-4">
               <button
                 type="button"
                 onClick={() => adjustScore('challenger', 5)}
-                className="btn btn-ghost text-xs px-3 py-1 mr-1"
+                className="btn btn-ghost text-xs px-3 py-1"
                 style={{ backgroundColor: 'var(--surface-subtle)' }}
               >
                 +5 {challenger.username.split(' ')[0]}
@@ -190,7 +243,7 @@ const ScoreModal: React.FC<ScoreModalProps> = ({ match, onSubmit, onClose }) => 
               <button
                 type="button"
                 onClick={() => adjustScore('challenger', 10)}
-                className="btn btn-ghost text-xs px-3 py-1 mr-1"
+                className="btn btn-ghost text-xs px-3 py-1"
                 style={{ backgroundColor: 'var(--surface-subtle)' }}
               >
                 +10 {challenger.username.split(' ')[0]}
@@ -198,7 +251,7 @@ const ScoreModal: React.FC<ScoreModalProps> = ({ match, onSubmit, onClose }) => 
               <button
                 type="button"
                 onClick={() => adjustScore('challenged', 5)}
-                className="btn btn-ghost text-xs px-3 py-1 mr-1"
+                className="btn btn-ghost text-xs px-3 py-1"
                 style={{ backgroundColor: 'var(--surface-subtle)' }}
               >
                 +5 {challenged.username.split(' ')[0]}
@@ -215,7 +268,7 @@ const ScoreModal: React.FC<ScoreModalProps> = ({ match, onSubmit, onClose }) => 
           </div>
 
           {/* Winner Indicator */}
-          {challengerScore !== challengedScore && (
+          {challengerScore !== challengedScore && challengerScore > 0 && challengedScore > 0 && (
             <div className="text-center mb-4">
               <p className="text-sm font-medium" style={{ color: 'var(--quantum-cyan)' }}>
                 🏆 {challengerScore > challengedScore ? challenger.username : challenged.username} Wins!
@@ -223,10 +276,17 @@ const ScoreModal: React.FC<ScoreModalProps> = ({ match, onSubmit, onClose }) => 
             </div>
           )}
 
+          {/* Error Message */}
+          {error && (
+            <div className="text-center mb-4 p-3 rounded-md" style={{ backgroundColor: 'rgba(255, 51, 102, 0.1)', color: 'var(--error-pink)' }}>
+              <p className="text-sm">{error}</p>
+            </div>
+          )}
+
           {/* Tie Warning */}
           {challengerScore === challengedScore && challengerScore > 0 && (
             <div className="text-center mb-4">
-              <p className="text-sm" style={{ color: 'var(--text-warning, #ff9800)' }}>
+              <p className="text-sm" style={{ color: 'var(--warning-orange)' }}>
                 ⚠️ Ties are not allowed. Please adjust the scores.
               </p>
             </div>
@@ -243,16 +303,23 @@ const ScoreModal: React.FC<ScoreModalProps> = ({ match, onSubmit, onClose }) => 
               type="button"
               onClick={onClose}
               className="btn btn-ghost flex-1"
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
               className="btn btn-primary btn-glare flex-1"
-              disabled={challengerScore === challengedScore}
+              disabled={challengerScore === challengedScore || isSubmitting}
             >
-              <Target size={16} />
-              Submit Score
+              {isSubmitting ? (
+                <div className="loading-spinner w-5 h-5"></div>
+              ) : (
+                <>
+                  <Target size={16} />
+                  Submit Score
+                </>
+              )}
             </button>
           </div>
         </form>

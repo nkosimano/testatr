@@ -11,6 +11,8 @@ interface ApiResponse<T = any> {
 class ApiClient {
   private baseUrl: string
   private token: string | null = null
+  private retryCount: number = 3
+  private retryDelay: number = 1000
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl
@@ -22,7 +24,8 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    retries = this.retryCount
   ): Promise<ApiResponse<T>> {
     // The full URL is constructed by combining the base URL and the endpoint.
     const url = `${this.baseUrl}${endpoint}`;
@@ -42,6 +45,13 @@ class ApiClient {
         headers
       })
 
+      // Handle rate limiting (429 status)
+      if (response.status === 429 && retries > 0) {
+        console.warn(`Rate limited, retrying in ${this.retryDelay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, this.retryDelay));
+        return this.request(endpoint, options, retries - 1);
+      }
+
       const data = await response.json()
 
       if (!response.ok) {
@@ -50,6 +60,13 @@ class ApiClient {
 
       return data
     } catch (error: any) {
+      // Retry on network errors
+      if (error.name === 'TypeError' && retries > 0) {
+        console.warn(`Network error, retrying in ${this.retryDelay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, this.retryDelay));
+        return this.request(endpoint, options, retries - 1);
+      }
+
       console.error(`API request failed: ${endpoint}`, error)
       return {
         success: false,
@@ -123,6 +140,11 @@ class ApiClient {
     return this.request(`/tournaments/${tournamentId}/generate-bracket`, {
       method: 'POST'
     })
+  }
+
+  // Health check
+  async healthCheck() {
+    return this.request('/health');
   }
 }
 

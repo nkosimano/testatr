@@ -12,6 +12,7 @@ interface RankingPlayer {
   rank?: number;
   rankChange?: 'up' | 'down' | 'same' | 'new';
   rankChangeValue?: number;
+  profile_picture_url?: string | null;
 }
 
 const RANKINGS_STORAGE_KEY = 'africa-tennis-previous-rankings';
@@ -19,7 +20,7 @@ const RANKINGS_STORAGE_KEY = 'africa-tennis-previous-rankings';
 const fetchRankings = async (): Promise<RankingPlayer[]> => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('user_id, username, elo_rating, matches_played, matches_won, skill_level')
+    .select('user_id, username, elo_rating, matches_played, matches_won, skill_level, profile_picture_url')
     .order('elo_rating', { ascending: false });
 
   if (error) {
@@ -48,6 +49,8 @@ export const useRankings = () => {
       }
     } catch (error) {
       console.error('Error loading previous rankings:', error);
+      // Clear potentially corrupted data
+      localStorage.removeItem(RANKINGS_STORAGE_KEY);
     }
   }, []);
 
@@ -65,6 +68,8 @@ export const useRankings = () => {
     queryFn: fetchRankings,
     staleTime: 60000, // 1 minute
     refetchOnWindowFocus: false,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   // Calculate rank changes by comparing with previous rankings

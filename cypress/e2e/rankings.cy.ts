@@ -78,4 +78,28 @@ describe('Rankings Page', () => {
       }
     })
   })
+
+  it('should search for players by name', () => {
+    // First check if there are any players
+    cy.get('.rankings-table-row').then($rows => {
+      if ($rows.length > 0) {
+        // Get the first player's name
+        cy.get('.player-name').first().invoke('text').then(name => {
+          // Search for this player
+          cy.get('.rankings-search input').type(name.substring(0, 3))
+          
+          // Check that the player is still visible
+          cy.contains('.player-name', name).should('be.visible')
+        })
+      } else {
+        // Skip test if no players are available
+        cy.log('No players available to test search')
+      }
+    })
+  })
+
+  it('should show rank change indicators', () => {
+    // Check if rank change indicators are present
+    cy.get('.rank-change').should('exist')
+  })
 })

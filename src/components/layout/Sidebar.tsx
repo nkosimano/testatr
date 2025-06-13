@@ -10,7 +10,8 @@ import {
   ChevronRight,
   Gavel,
   Swords,
-  LogOut
+  LogOut,
+  User
 } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import { useAuthStore } from '../../stores/authStore';
@@ -23,13 +24,13 @@ const Sidebar: React.FC = () => {
   const { profile, signOut } = useAuthStore();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
-  // The "Profile" item with the Settings icon has been removed from this list.
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, path: '/dashboard' },
     { id: 'matches', label: 'My Matches', icon: Swords, path: '/matches' },
     { id: 'tournaments', label: 'Tournaments', icon: Trophy, path: '/tournaments' },
     { id: 'umpire', label: 'Live Scoring', icon: Gavel, path: '/umpire' },
     { id: 'rankings', label: 'Ratings & Rankings', icon: BarChart3, path: '/rankings' },
+    { id: 'profile', label: 'Profile', icon: User, path: '/profile' },
   ];
 
   const handleSignOut = async () => {
@@ -93,7 +94,7 @@ const Sidebar: React.FC = () => {
           </button>
         </div>
 
-        {/* User Info Button - This whole block is now a clickable link */}
+        {/* User Info */}
         {!isCollapsed && profile && (
           <Link
             to="/profile"
