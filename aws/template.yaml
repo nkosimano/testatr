@@ -32,7 +32,7 @@ Parameters:
   FrontendUrl:
     Type: String
     Description: URL of the frontend application
-    Default: https://africatennis.com
+    Default: http://localhost:5173
 
 Resources:
   # API Gateway
