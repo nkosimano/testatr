@@ -3,9 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Home, 
   Trophy, 
-  Calendar, 
   BarChart3, 
-  Settings, 
   Menu, 
   X,
   ChevronLeft,
@@ -25,13 +23,13 @@ const Sidebar: React.FC = () => {
   const { profile, signOut } = useAuthStore();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
+  // The "Profile" item with the Settings icon has been removed from this list.
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, path: '/dashboard' },
     { id: 'matches', label: 'My Matches', icon: Swords, path: '/matches' },
     { id: 'tournaments', label: 'Tournaments', icon: Trophy, path: '/tournaments' },
     { id: 'umpire', label: 'Live Scoring', icon: Gavel, path: '/umpire' },
     { id: 'rankings', label: 'Ratings & Rankings', icon: BarChart3, path: '/rankings' },
-    { id: 'profile', label: 'Profile', icon: Settings, path: '/profile' },
   ];
 
   const handleSignOut = async () => {
@@ -95,19 +93,25 @@ const Sidebar: React.FC = () => {
           </button>
         </div>
 
-        {/* User Info */}
+        {/* User Info Button - This whole block is now a clickable link */}
         {!isCollapsed && profile && (
-          <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center">
-              <div className="player-avatar w-10 h-10 text-sm">
-                {profile?.username?.charAt(0).toUpperCase() || 'U'}
-              </div>
-              <div className="ml-3">
-                <div className="text-sm font-medium" style={{ color: 'var(--text-standard)' }}>{profile?.username || 'User'}</div>
-                <div className="text-xs" style={{ color: 'var(--text-subtle)' }}>Rating: {profile?.elo_rating || 1200}</div>
+          <Link
+            to="/profile"
+            className="user-profile-button block"
+            onClick={() => setIsMobileOpen(false)}
+          >
+            <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center">
+                <div className="player-avatar w-10 h-10 text-sm">
+                  {profile?.username?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <div className="ml-3">
+                  <div className="text-sm font-medium" style={{ color: 'var(--text-standard)' }}>{profile?.username || 'User'}</div>
+                  <div className="text-xs" style={{ color: 'var(--text-subtle)' }}>Rating: {profile?.elo_rating || 1200}</div>
+                </div>
               </div>
             </div>
-          </div>
+          </Link>
         )}
 
         {/* Navigation */}

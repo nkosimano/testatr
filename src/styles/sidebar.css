@@ -113,6 +113,17 @@
   color: var(--text-standard);
 }
 
+/* NEW: User Profile Button Style */
+.user-profile-button {
+  transition: background-color 0.2s ease-in-out;
+  display: block;
+  text-decoration: none;
+}
+
+.user-profile-button:hover {
+  background-color: var(--hover-bg);
+}
+
 .sidebar-nav {
   flex: 1;
   padding: 1rem 0;
