@@ -45,17 +45,11 @@ Resources:
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
 
-<<<<<<< HEAD
-  # All functions now point CodeUri to the 'dist' folder.
-=======
-  # All functions now point CodeUri to the SOURCE folder, not 'dist'.
-  # The Metadata block tells 'sam build' how to compile the code.
-
->>>>>>> 7d5af029c88a1d75cf93638b63301c1d40e42906
+  # Functions pointing to the 'dist' directory where compiled code will be.
   UpdateScoreFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambdas/update-score/
+      CodeUri: dist/lambdas/update-score/
       Handler: index.handler
       Events:
         Api:
@@ -64,18 +58,11 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /matches/{matchId}/score
             Method: post
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        Minify: false
-        Target: "es2020"
-        Sourcemap: true
-        EntryPoints: [ "index.ts" ]
 
   GenerateBracketFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambdas/generate-bracket/
+      CodeUri: dist/lambdas/generate-bracket/
       Handler: index.handler
       Events:
         Api:
@@ -84,18 +71,11 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /tournaments/{tournamentId}/generate-bracket
             Method: post
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        Minify: false
-        Target: "es2020"
-        Sourcemap: true
-        EntryPoints: [ "index.ts" ]
 
   SendNotificationFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambdas/send-notification/
+      CodeUri: dist/lambdas/send-notification/
       Handler: index.handler
       Events:
         Api:
@@ -111,18 +91,11 @@ Resources:
               - ses:SendEmail
               - ses:SendRawEmail
             Resource: '*'
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        Minify: false
-        Target: "es2020"
-        Sourcemap: true
-        EntryPoints: [ "index.ts" ]
 
   AggregateStatsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambdas/aggregate-stats/
+      CodeUri: dist/lambdas/aggregate-stats/
       Handler: index.handler
       Events:
         ScheduledEvent:
@@ -131,18 +104,11 @@ Resources:
             Schedule: cron(0 2 * * ? *)
             Name: DailyStatsAggregation
             Description: Aggregates player statistics daily at 2 AM UTC
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        Minify: false
-        Target: "es2020"
-        Sourcemap: true
-        EntryPoints: [ "index.ts" ]
 
   GetMatchesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambdas/get-matches/
+      CodeUri: dist/lambdas/get-matches/
       Handler: index.handler
       Events:
         Api:
@@ -151,13 +117,6 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /matches
             Method: get
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        Minify: false
-        Target: "es2020"
-        Sourcemap: true
-        EntryPoints: [ "index.ts" ]
 
 Outputs:
   ApiEndpoint:

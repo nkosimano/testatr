@@ -46,7 +46,7 @@ Resources:
   UpdateScoreFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://africa-tennis-artifacts-nathi-2025/0087915596688894ba0128d7513a8fd3
+      CodeUri: s3://africa-tennis-artifacts-nathi-2025/84bc934c9a708cea725990ec3f458faf
       Handler: index.handler
       Events:
         Api:
@@ -61,7 +61,7 @@ Resources:
   GenerateBracketFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://africa-tennis-artifacts-nathi-2025/871858f8ee3251254b2ed2b7b2aea074
+      CodeUri: s3://africa-tennis-artifacts-nathi-2025/036f790b9598dd57c0cfefdea99de771
       Handler: index.handler
       Events:
         Api:
@@ -76,7 +76,7 @@ Resources:
   SendNotificationFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://africa-tennis-artifacts-nathi-2025/353587545df61591708a918254c8e6f4
+      CodeUri: s3://africa-tennis-artifacts-nathi-2025/e772978aa390e8cec1586f0fc5491e50
       Handler: index.handler
       Events:
         Api:
@@ -98,7 +98,7 @@ Resources:
   AggregateStatsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://africa-tennis-artifacts-nathi-2025/9dedc68fd982d3c9d919c7c0923581a0
+      CodeUri: s3://africa-tennis-artifacts-nathi-2025/8bb7a70a11f6fed3a28ebba6d6cf7412
       Handler: index.handler
       Events:
         ScheduledEvent:
@@ -112,7 +112,7 @@ Resources:
   GetMatchesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://africa-tennis-artifacts-nathi-2025/00cd7c59c74be3a8be80fd9330a486c0
+      CodeUri: s3://africa-tennis-artifacts-nathi-2025/7765ded55a8b5fd7562e660390f01f7c
       Handler: index.handler
       Events:
         Api:
@@ -129,33 +129,3 @@ Outputs:
     Description: API Gateway endpoint URL
     Value:
       Fn::Sub: https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/
-  UpdateScoreFunction:
-    Description: Update Score Lambda Function ARN
-    Value:
-      Fn::GetAtt:
-      - UpdateScoreFunction
-      - Arn
-  GenerateBracketFunction:
-    Description: Generate Tournament Bracket Lambda Function ARN
-    Value:
-      Fn::GetAtt:
-      - GenerateBracketFunction
-      - Arn
-  SendNotificationFunction:
-    Description: Send Notification Lambda Function ARN
-    Value:
-      Fn::GetAtt:
-      - SendNotificationFunction
-      - Arn
-  AggregateStatsFunction:
-    Description: Aggregate Player Statistics Lambda Function ARN
-    Value:
-      Fn::GetAtt:
-      - AggregateStatsFunction
-      - Arn
-  GetMatchesFunction:
-    Description: Get Matches Lambda Function ARN
-    Value:
-      Fn::GetAtt:
-      - GetMatchesFunction
-      - Arn
