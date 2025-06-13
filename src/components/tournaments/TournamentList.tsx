@@ -22,12 +22,12 @@ export const TournamentList: React.FC = () => {
     registerForTournament.mutate({ tournamentId, playerId: user.id });
   };
 
-  const handleCreateTournament = () => {
-    setShowCreateForm(true);
-  };
-
   const handleViewDetails = (tournamentId: string) => {
     navigate(`/tournaments/${tournamentId}`);
+  };
+
+  const handleCreateTournament = () => {
+    setShowCreateForm(true);
   };
 
   const formatStatus = (status: string) => {
