@@ -134,15 +134,17 @@ export const MatchList: React.FC = () => {
   return (
     <div className="match-list-page">
       <div className="match-list-container">
-        <header className="match-list-header">
+        <header className="matches-header">
           <div>
-            <h1 className="match-list-title">Matches</h1>
-            <p className="match-list-subtitle">View your match history, challenge players, and report scores.</p>
+            <h1 className="matches-title">Matches</h1>
+            <p className="matches-subtitle">View your match history, challenge players, and report scores.</p>
           </div>
-          <button className="btn btn-primary btn-icon" onClick={handleCreateMatch}>
-            <Plus size={18} />
-            Create Match
-          </button>
+          <div className="matches-header-actions">
+            <button className="btn btn-primary btn-icon" onClick={handleCreateMatch}>
+              <Plus size={18} />
+              Create Match
+            </button>
+          </div>
         </header>
 
         <div className="match-list-controls">

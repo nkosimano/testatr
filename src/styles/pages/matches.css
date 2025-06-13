@@ -15,7 +15,7 @@
 .matches-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 2rem;
   padding: 3rem 2rem;
   background: var(--glass-bg);
@@ -875,115 +875,77 @@
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
-  .match-details-container {
+  .matches-container {
     padding: 1rem;
   }
   
-  .match-details-header {
+  .matches-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 1rem;
+    gap: 1.5rem;
+    padding: 2rem 1.5rem;
   }
   
-  .match-details-title-section {
-    width: 100%;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-  }
-  
-  .match-details-title {
+  .matches-title {
     font-size: 2rem;
   }
   
-  .match-details-tabs {
-    flex-direction: column;
-    gap: 0.25rem;
+  .matches-subtitle {
+    font-size: 1rem;
   }
   
-  .match-score-display {
-    flex-direction: column;
-    gap: 1rem;
+  .matches-header-actions {
+    width: 100%;
   }
   
-  .match-score-separator {
-    transform: rotate(90deg);
+  .matches-new-btn {
+    width: 100%;
   }
   
-  .match-info-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-  
-  .match-players-display {
+  .match-list-controls {
     flex-direction: column;
     gap: 1rem;
   }
   
-  .match-vs {
-    transform: rotate(90deg);
-    margin: 0.5rem 0;
+  .filter-group {
+    width: 100%;
+    flex-wrap: wrap;
   }
   
-  .stats-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
+  .filter-select {
+    flex: 1;
+    min-width: 0;
   }
   
-  .stat-comparison {
-    gap: 1rem;
-  }
-  
-  .highlights-grid {
+  .match-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
   }
 }
 
 @media (max-width: 480px) {
-  .match-details-container {
+  .matches-container {
     padding: 0.5rem;
   }
   
-  .match-details-back-btn {
-    width: 40px;
-    height: 40px;
+  .matches-header {
+    padding: 1.5rem 1rem;
   }
   
-  .match-details-title {
+  .matches-title {
     font-size: 1.75rem;
   }
   
-  .match-score-section,
-  .match-info-card,
-  .match-analysis-section,
-  .stat-card,
-  .match-timeline,
-  .highlight-card {
+  .matches-subtitle {
+    font-size: 0.9rem;
+  }
+  
+  .match-list-controls {
     padding: 1rem;
   }
   
-  .match-score-value {
-    font-size: 2.5rem;
-  }
-  
-  .stat-bar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-  
-  .stat-bar-container {
-    width: 100%;
-  }
-  
-  .timeline-event {
-    padding: 0.75rem;
-  }
-  
-  .timeline-marker {
-    width: 28px;
-    height: 28px;
+  .section-title {
+    font-size: 1.25rem;
   }
 }
 
@@ -1076,4 +1038,16 @@
   100% {
     background-position: 0% 50%;
   }
+}
+
+/* Match list page specific styles */
+.match-list-page {
+  min-height: 100vh;
+  background: var(--bg-deep-space);
+}
+
+.match-list-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
 }
