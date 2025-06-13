@@ -9,7 +9,8 @@
     "lint": "eslint . --fix",
     "preview": "vite preview",
     "test": "cypress open",
-    "test:headless": "cypress run",
+    "test:e2e": "cypress run",
+    "test:component": "cypress run --component",
     "test:aws": "jest --config ./aws/jest.config.js"
   },
   "dependencies": {

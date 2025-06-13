@@ -1,6 +1,6 @@
 describe('Dashboard', () => {
   beforeEach(() => {
-    // Mock authentication
+    // Set up a mock authenticated user
     cy.window().then((win) => {
       win.localStorage.setItem('auth-storage', JSON.stringify({
         state: {
@@ -13,7 +13,8 @@ describe('Dashboard', () => {
             username: 'testuser',
             elo_rating: 1200,
             matches_played: 0,
-            matches_won: 0
+            matches_won: 0,
+            skill_level: 'beginner'
           },
           session: {
             access_token: 'mock-token'
@@ -22,23 +23,33 @@ describe('Dashboard', () => {
         version: 0
       }))
     })
+    
+    cy.visit('/dashboard')
   })
 
   it('should display dashboard when authenticated', () => {
-    cy.visit('/dashboard')
-    cy.contains('Welcome, testuser!').should('be.visible')
-    cy.contains('ELO Rating: 1200').should('be.visible')
+    cy.contains('Welcome back').should('be.visible')
+    cy.contains('Rating').should('be.visible')
+    cy.contains('Matches Played').should('be.visible')
   })
 
-  it('should allow user to sign out', () => {
-    cy.visit('/dashboard')
-    cy.contains('Sign Out').click()
-    cy.url().should('include', '/login')
+  it('should have navigation sidebar', () => {
+    cy.get('.sidebar').should('be.visible')
+    cy.get('.sidebar-nav-item').should('have.length.at.least', 4)
   })
 
-  it('should display user statistics', () => {
-    cy.visit('/dashboard')
-    cy.contains('Matches Played: 0').should('be.visible')
-    cy.contains('Matches Won: 0').should('be.visible')
+  it('should navigate to matches page', () => {
+    cy.contains('My Matches').click()
+    cy.url().should('include', '/matches')
+  })
+
+  it('should navigate to tournaments page', () => {
+    cy.contains('Tournaments').click()
+    cy.url().should('include', '/tournaments')
+  })
+
+  it('should navigate to rankings page', () => {
+    cy.contains('Ratings & Rankings').click()
+    cy.url().should('include', '/rankings')
   })
 })
