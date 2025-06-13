@@ -1,0 +1,161 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Africa Tennis Platform - Serverless Backend
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: nodejs18.x
+    Environment:
+      Variables:
+        SUPABASE_URL:
+          Ref: SupabaseUrl
+        SUPABASE_SERVICE_ROLE_KEY:
+          Ref: SupabaseServiceRoleKey
+        SES_EMAIL_SOURCE:
+          Ref: SesEmailSource
+        FRONTEND_URL:
+          Ref: FrontendUrl
+Parameters:
+  SupabaseUrl:
+    Type: String
+    Description: Supabase project URL
+  SupabaseServiceRoleKey:
+    Type: String
+    Description: Supabase service role key
+    NoEcho: true
+  SesEmailSource:
+    Type: String
+    Description: Email address to send notifications from
+    Default: noreply@africatennis.com
+  FrontendUrl:
+    Type: String
+    Description: URL of the frontend application
+    Default: https://africatennis.com
+Resources:
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: '''GET,POST,PUT,DELETE,OPTIONS'''
+        AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
+        AllowOrigin: '''*'''
+    Metadata:
+      SamResourceId: ApiGateway
+  UpdateScoreFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://africa-tennis-artifacts-nathi-2025/0087915596688894ba0128d7513a8fd3
+      Handler: index.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ApiGateway
+            Path: /matches/{matchId}/score
+            Method: post
+    Metadata:
+      SamResourceId: UpdateScoreFunction
+  GenerateBracketFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://africa-tennis-artifacts-nathi-2025/871858f8ee3251254b2ed2b7b2aea074
+      Handler: index.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ApiGateway
+            Path: /tournaments/{tournamentId}/generate-bracket
+            Method: post
+    Metadata:
+      SamResourceId: GenerateBracketFunction
+  SendNotificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://africa-tennis-artifacts-nathi-2025/353587545df61591708a918254c8e6f4
+      Handler: index.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ApiGateway
+            Path: /notifications/new-match
+            Method: post
+      Policies:
+      - Statement:
+        - Effect: Allow
+          Action:
+          - ses:SendEmail
+          - ses:SendRawEmail
+          Resource: '*'
+    Metadata:
+      SamResourceId: SendNotificationFunction
+  AggregateStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://africa-tennis-artifacts-nathi-2025/9dedc68fd982d3c9d919c7c0923581a0
+      Handler: index.handler
+      Events:
+        ScheduledEvent:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 2 * * ? *)
+            Name: DailyStatsAggregation
+            Description: Aggregates player statistics daily at 2 AM UTC
+    Metadata:
+      SamResourceId: AggregateStatsFunction
+  GetMatchesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://africa-tennis-artifacts-nathi-2025/6d0bfb5db717e9ec66be0ef4d6c2ca1f
+      Handler: index.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ApiGateway
+            Path: /matches
+            Method: get
+    Metadata:
+      SamResourceId: GetMatchesFunction
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value:
+      Fn::Sub: https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/
+  UpdateScoreFunction:
+    Description: Update Score Lambda Function ARN
+    Value:
+      Fn::GetAtt:
+      - UpdateScoreFunction
+      - Arn
+  GenerateBracketFunction:
+    Description: Generate Tournament Bracket Lambda Function ARN
+    Value:
+      Fn::GetAtt:
+      - GenerateBracketFunction
+      - Arn
+  SendNotificationFunction:
+    Description: Send Notification Lambda Function ARN
+    Value:
+      Fn::GetAtt:
+      - SendNotificationFunction
+      - Arn
+  AggregateStatsFunction:
+    Description: Aggregate Player Statistics Lambda Function ARN
+    Value:
+      Fn::GetAtt:
+      - AggregateStatsFunction
+      - Arn
+  GetMatchesFunction:
+    Description: Get Matches Lambda Function ARN
+    Value:
+      Fn::GetAtt:
+      - GetMatchesFunction
+      - Arn

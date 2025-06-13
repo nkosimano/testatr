@@ -1,0 +1,148 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Africa Tennis Platform - Serverless Backend
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: nodejs18.x
+    Environment:
+      Variables:
+        SUPABASE_URL: !Ref SupabaseUrl
+        SUPABASE_SERVICE_ROLE_KEY: !Ref SupabaseServiceRoleKey
+        SES_EMAIL_SOURCE: !Ref SesEmailSource
+        FRONTEND_URL: !Ref FrontendUrl
+
+Parameters:
+  SupabaseUrl:
+    Type: String
+    Description: Supabase project URL
+  
+  SupabaseServiceRoleKey:
+    Type: String
+    Description: Supabase service role key
+    NoEcho: true
+  
+  SesEmailSource:
+    Type: String
+    Description: Email address to send notifications from
+    Default: noreply@africatennis.com
+  
+  FrontendUrl:
+    Type: String
+    Description: URL of the frontend application
+    Default: https://africatennis.com
+
+Resources:
+  # API Gateway
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+
+  # Update Score Lambda
+  UpdateScoreFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/update-score/
+      Handler: index.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /matches/{matchId}/score
+            Method: post
+
+  # Generate Tournament Bracket Lambda
+  GenerateBracketFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/generate-bracket/
+      Handler: index.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /tournaments/{tournamentId}/generate-bracket
+            Method: post
+
+  # Send Notification Lambda
+  SendNotificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/send-notification/
+      Handler: index.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /notifications/new-match
+            Method: post
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action:
+              - ses:SendEmail
+              - ses:SendRawEmail
+            Resource: '*'
+
+  # Aggregate Player Statistics Lambda
+  AggregateStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/aggregate-stats/
+      Handler: index.handler
+      Events:
+        ScheduledEvent:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 2 * * ? *)
+            Name: DailyStatsAggregation
+            Description: Aggregates player statistics daily at 2 AM UTC
+
+  # Get Matches Lambda
+  GetMatchesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/get-matches/
+      Handler: index.handler
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /matches
+            Method: get
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/
+  
+  UpdateScoreFunction:
+    Description: Update Score Lambda Function ARN
+    Value: !GetAtt UpdateScoreFunction.Arn
+  
+  GenerateBracketFunction:
+    Description: Generate Tournament Bracket Lambda Function ARN
+    Value: !GetAtt GenerateBracketFunction.Arn
+  
+  SendNotificationFunction:
+    Description: Send Notification Lambda Function ARN
+    Value: !GetAtt SendNotificationFunction.Arn
+  
+  AggregateStatsFunction:
+    Description: Aggregate Player Statistics Lambda Function ARN
+    Value: !GetAtt AggregateStatsFunction.Arn
+  
+  GetMatchesFunction:
+    Description: Get Matches Lambda Function ARN
+    Value: !GetAtt GetMatchesFunction.Arn
