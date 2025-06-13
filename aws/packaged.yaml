@@ -38,9 +38,9 @@ Resources:
     Properties:
       StageName: prod
       Cors:
-        AllowMethods: '''GET,POST,PUT,DELETE,OPTIONS'''
+        AllowOrigin: '''https://zp1v56uxy8rdx5ypatb0ockcb9tr6a-oci3--5173--858c0e43.local-credentialless.webcontainer-api.io'''
         AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
-        AllowOrigin: '''*'''
+        AllowMethods: '''GET,POST,PUT,DELETE,OPTIONS'''
     Metadata:
       SamResourceId: ApiGateway
   UpdateScoreFunction:

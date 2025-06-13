@@ -2,25 +2,15 @@
 setlocal
 
 REM --- AWS & Project Configuration ---
-REM The AWS region where you want to deploy your resources (e.g., us-east-1, eu-west-2)
 set "AWS_REGION=us-east-1"
-
-REM A globally unique name for the S3 bucket to store deployment artifacts
 set "S3_BUCKET_NAME=africa-tennis-artifacts-nathi-2025"
-
-REM The name for the CloudFormation stack that will be created
 set "STACK_NAME=africa-tennis-platform-stack"
 
 REM -- Supabase & Frontend URLs --
-REM Found in your Supabase project under Project Settings > API
 set "SUPABASE_URL=https://ppuqbimzeplznqdchvve.supabase.co"
-
-REM The URL of your hosted frontend application
-set "FRONTEND_URL=http://localhost:5173"
+set "FRONTEND_URL=https://zp1v56uxy8rdx5ypatb0ockcb9tr6a-oci3--5173--858c0e43.local-credentialless.webcontainer-api.io"
 
 REM -- Supabase Secret Key --
-REM Found in your Supabase project under Project Settings > API > Project API Keys
-REM IMPORTANT: Use the 'service_role' key.
 set "SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBwdXFiaW16ZXBsem5xZGNodnZlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTYzNzI2MSwiZXhwIjoyMDY1MjEzMjYxfQ.NEfWLgVkb98xlApZ1T6ZeDkh5stIH1rnfs_-bJwYx0U"
 
 echo [INFO] Configuration loaded successfully.
