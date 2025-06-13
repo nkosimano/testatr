@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Trophy, 
-  Zap, 
-  Target, 
-  X, 
-  RotateCcw, 
   Plus, 
   Loader2, 
   AlertTriangle,
   CheckCircle,
   ArrowLeft
 } from 'lucide-react';
-import { useMatchStore } from '../../stores/matchStore';
+import { useMatchMutations } from '../../hooks/useMatchMutations';
+import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../types/database';
 
@@ -46,24 +43,24 @@ interface TennisScore {
 }
 
 export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => {
+  const { user } = useAuthStore();
   const [score, setScore] = useState<TennisScore | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+
   const [pointType, setPointType] = useState<PointType>('point_won');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [confirmEndMatch, setConfirmEndMatch] = useState(false);
   
-  const { awardPoint } = useMatchStore();
+  const { awardPoint, updateMatch } = useMatchMutations(user?.id ?? '');
 
   useEffect(() => {
     // Initialize score from match data
     if (match && match.score) {
       try {
-        const parsedScore = typeof match.score === 'string' 
-          ? JSON.parse(match.score) 
-          : match.score;
-        
+        const parsedScore =
+          typeof match.score === 'string' ? JSON.parse(match.score) : match.score;
+
         setScore(parsedScore);
       } catch (err) {
         console.error('Error parsing score:', err);
@@ -75,7 +72,7 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
         sets: [],
         current_game: { player1: '0', player2: '0' },
         server_id: match.player1_id,
-        is_tiebreak: false
+        is_tiebreak: false,
       });
     }
 
@@ -88,12 +85,12 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
           event: 'UPDATE',
           schema: 'public',
           table: 'matches',
-          filter: `id=eq.${match.id}`
+          filter: `id=eq.${match.id}`,
         },
         (payload) => {
           if (payload.new && payload.new.score) {
             setScore(payload.new.score as TennisScore);
-            
+
             // If match is completed, show success message
             if (payload.new.status === 'completed') {
               setSuccessMessage('Match completed!');
@@ -102,23 +99,27 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
               }, 3000);
             }
           }
-        }
+        },
       )
       .subscribe();
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [match.id]);
+  }, [match.id, onBack, match.score, match.player1_id]);
 
   const handleAwardPoint = async (playerId: string) => {
     if (isSubmitting) return;
-    
+
     setIsSubmitting(true);
     setError(null);
-    
+
     try {
-      await awardPoint(match.id, playerId, pointType);
+      await awardPoint.mutateAsync({
+        matchId: match.id,
+        winningPlayerId: playerId,
+        pointType: pointType,
+      });
       setPointType('point_won'); // Reset point type after successful submission
     } catch (err: any) {
       console.error('Error awarding point:', err);
@@ -135,20 +136,20 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
   const confirmMatchEnd = async () => {
     setIsSubmitting(true);
     try {
-      await supabase
-        .from('matches')
-        .update({ 
+      await updateMatch.mutateAsync({
+        id: match.id,
+        updates: {
           status: 'completed',
-          // Determine winner based on sets won
-          winner_id: getMatchWinner()
-        })
-        .eq('id', match.id);
-      
+          winner_id: getMatchWinner(),
+        },
+      });
+
       setSuccessMessage('Match completed successfully!');
       setTimeout(() => {
         onBack();
       }, 3000);
     } catch (err: any) {
+      console.error('Error ending match:', err);
       setError(err.message || 'Failed to end match');
     } finally {
       setIsSubmitting(false);
@@ -161,18 +162,22 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
       return match.player1_id; // Default to player1 if no score data
     }
     
-    let player1Sets = 0;
-    let player2Sets = 0;
-    
+    let player1SetsWon = 0;
+    let player2SetsWon = 0;
+
     score.sets.forEach(set => {
       if (set.player1_games > set.player2_games) {
-        player1Sets++;
+        player1SetsWon++;
       } else if (set.player2_games > set.player1_games) {
-        player2Sets++;
+        player2SetsWon++;
       }
     });
-    
-    return player1Sets > player2Sets ? match.player1_id : match.player2_id;
+
+    // Assuming a best-of-3 match for now
+    if (player1SetsWon >= 2) return match.player1_id;
+    if (player2SetsWon >= 2) return match.player2_id;
+
+    return ''; // No winner yet
   };
 
   const getPointTypeLabel = (type: PointType): string => {

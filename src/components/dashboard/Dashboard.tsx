@@ -1,80 +1,107 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Target, Zap, Trophy, Calendar, ChevronRight, MapPin, Users } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { useMatchStore } from '../../stores/matchStore';
+import { useMatches } from '../../hooks/useMatches';
+import { useTournaments } from '../../hooks/useTournaments';
 import MatchRequestActions from '../matches/MatchRequestActions';
-import { useTournamentStore } from '../../stores/tournamentStore';
 import { Link } from 'react-router-dom';
 import CreateMatchModal from '../matches/CreateMatchModal';
 import LoadingSpinner from '../LoadingSpinner';
-import { supabase } from '../../lib/supabase';
+import { Match, Tournament } from '../../types';
 
 export const Dashboard: React.FC = () => {
   const { user, profile } = useAuthStore();
-  const { matches, fetchMatches } = useMatchStore();
-  const { tournaments, fetchTournaments } = useTournamentStore();
-  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const { data: rawMatches, isLoading: isLoadingMatches } = useMatches(user?.id);
+  const { tournaments: rawTournaments, isLoading: isLoadingTournaments } = useTournaments();
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [recentMatches, setRecentMatches] = useState<any[]>([]);
-  const [upcomingTournaments, setUpcomingTournaments] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) {
-      setIsLoading(true);
-      Promise.all([
-        fetchMatches(user.id),
-        fetchTournaments()
-      ]).finally(() => {
-        setIsLoading(false);
-      });
-    }
-  }, [user, fetchMatches, fetchTournaments]);
+    const matches: Match[] = useMemo(() => {
+    if (!rawMatches) return [];
+    return rawMatches.map((m: any) => ({
+      id: m.id,
+      date: m.date,
+      location: m.location,
+      status: m.status,
+      score: m.score,
+      player1: m.player1,
+      player2: m.player2,
+      winnerProfile: m.winnerProfile,
+      challengerId: m.player1_id,
+      challengedId: m.player2_id,
+      createdAt: m.created_at,
+      challengerScore: m.challenger_score,
+      challengedScore: m.challenged_score,
+      winner: m.winner_id,
+      detailedStatsId: m.detailed_stats_id,
+      scoreDisplay: m.score_display,
+    }));
+  }, [rawMatches]);
 
-  useEffect(() => {
-    // Find pending match requests where the current user is the challenged player
-    if (matches.length > 0 && user) {
-      const requests = matches.filter(match => 
-        match.status === 'pending' && match.challengedId === user.id
-      );
-      setPendingRequests(requests);
-    }
+    const tournaments: Tournament[] = useMemo(() => {
+    if (!rawTournaments) return [];
+    return rawTournaments.map((t: any) => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      location: t.location,
+      format: t.format,
+      status: t.status,
+      createdAt: t.created_at,
+      startDate: t.start_date,
+      endDate: t.end_date,
+      organizerId: t.organizer_id,
+      registrationDeadline: t.registration_deadline,
+      maxParticipants: t.max_participants,
+      participantCount: t.participant_count,
+      isRegistered: t.is_registered,
+      umpireId: t.umpire_id,
+      winnerId: t.winner_id,
+    }));
+  }, [rawTournaments]);
+
+  const pendingRequests = useMemo(() => {
+    if (!matches || !user) return [];
+    return matches.filter((match) => 
+      match.status === 'pending' && match.challengedId === user.id
+    );
   }, [matches, user]);
 
-  useEffect(() => {
-    // Process matches for display
+  const recentMatches = useMemo(() => {
+    if (!matches) return [];
     const now = new Date();
-    
-    // Get recent matches
-    const recent = matches
-      .filter(match => 
+    return matches
+      .filter((match) => 
         new Date(match.date) <= now || match.status === 'completed'
       )
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 3);
-    
-    setRecentMatches(recent);
-    
-    // Get upcoming tournaments
-    const upcoming = tournaments
-      .filter(tournament => 
+  }, [matches]);
+
+  const upcomingTournaments = useMemo(() => {
+    if (!tournaments) return [];
+    const now = new Date();
+    return tournaments
+      .filter((tournament) => 
         new Date(tournament.startDate) > now && 
         (tournament.status === 'registration_open' || tournament.status === 'registration_closed')
       )
       .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
       .slice(0, 3);
-    
-    setUpcomingTournaments(upcoming);
-  }, [matches, tournaments]);
+  }, [tournaments]);
 
   const handleCreateMatch = () => {
     setShowCreateForm(true);
   };
 
-  const handleMatchCreated = () => {
-    if (user) {
-      fetchMatches(user.id);
+  const getFormattedScore = (score: any) => {
+    if (!score) return 'N/A';
+    if (typeof score === 'string') {
+      return score;
     }
+    if (typeof score === 'object' && score.sets) {
+      return score.sets.map((set: any) => `${set.player1_games}-${set.player2_games}`).join(', ');
+    }
+    return 'N/A';
   };
 
   const winRate = profile ? 
@@ -82,6 +109,8 @@ export const Dashboard: React.FC = () => {
       (profile.matches_won / profile.matches_played * 100).toFixed(1) : 
       '0.0') : 
     '0.0';
+
+  const isLoading = isLoadingMatches || isLoadingTournaments;
 
   if (isLoading) {
     return (
@@ -152,7 +181,7 @@ export const Dashboard: React.FC = () => {
                 
                 {recentMatches.length > 0 ? (
                   <div className="space-y-4">
-                    {recentMatches.map(match => (
+                    {recentMatches.map((match) => (
                       <Link 
                         to={`/matches/${match.id}`} 
                         key={match.id} 
@@ -173,15 +202,9 @@ export const Dashboard: React.FC = () => {
                         <div className="text-sm" style={{ color: 'var(--text-subtle)' }}>
                           {new Date(match.date).toLocaleDateString()}
                         </div>
-                        {match.status === 'completed' && match.score && typeof match.score === 'string' && (
+                        {match.status === 'completed' && match.score && (
                           <div className="mt-2 font-medium" style={{ color: 'var(--quantum-cyan)' }}>
-                            Score: {typeof match.score === 'string' 
-                              ? match.score 
-                              : match.score.sets 
-                                ? match.score.sets.map((set: any) => 
-                                    `${set.player1_games}-${set.player2_games}`
-                                  ).join(', ') 
-                                : 'No sets played'}
+                            Score: {getFormattedScore(match.score)}
                           </div>
                         )}
                       </Link>
@@ -208,39 +231,39 @@ export const Dashboard: React.FC = () => {
                 
                 {upcomingTournaments.length > 0 ? (
                   <div className="space-y-4">
-                    {upcomingTournaments.map(tournament => {
-                      // Format date properly
-                      const startDate = new Date(tournament.startDate || tournament.start_date);
+                    {upcomingTournaments.map((tournament) => {
+                      const startDate = new Date(tournament.startDate);
                       const format = tournament.format?.replace('_', ' ') || '';
                       
                       return (
-                      <Link 
-                        to={`/tournaments/${tournament.id}`} 
-                        key={tournament.id} 
-                        className="p-4 rounded-lg block hover:shadow-md transition-shadow" 
-                        style={{ backgroundColor: 'var(--bg-elevated)' }}
-                      >
-                        <div className="font-medium mb-2" style={{ color: 'var(--text-standard)' }}>
-                          {tournament.name}
-                        </div>
-                        <div className="text-sm mb-1" style={{ color: 'var(--text-subtle)' }}>
-                          <Calendar size={14} className="inline mr-1" />
-                          {startDate.toLocaleDateString()}
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <div className="text-xs px-2 py-1 rounded-full inline-block" style={{ 
-                            backgroundColor: 'rgba(0, 212, 255, 0.1)',
-                            color: 'var(--quantum-cyan)'
-                          }}>
-                            {format}
+                        <Link 
+                          to={`/tournaments/${tournament.id}`} 
+                          key={tournament.id} 
+                          className="p-4 rounded-lg block hover:shadow-md transition-shadow" 
+                          style={{ backgroundColor: 'var(--bg-elevated)' }}
+                        >
+                          <div className="font-medium mb-2" style={{ color: 'var(--text-standard)' }}>
+                            {tournament.name}
                           </div>
-                          <div className="text-xs flex items-center" style={{ color: 'var(--text-subtle)' }}>
-                            <Users size={12} className="mr-1" />
-                            {tournament.participantCount || 0}/{tournament.maxParticipants || tournament.max_participants}
+                          <div className="text-sm mb-1" style={{ color: 'var(--text-subtle)' }}>
+                            <Calendar size={14} className="inline mr-1" />
+                            {startDate.toLocaleDateString()}
                           </div>
-                        </div>
-                      </Link>
-                    )})}
+                          <div className="flex justify-between items-center">
+                            <div className="text-xs px-2 py-1 rounded-full inline-block capitalize" style={{ 
+                              backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                              color: 'var(--quantum-cyan)'
+                            }}>
+                              {format}
+                            </div>
+                            <div className="text-xs flex items-center" style={{ color: 'var(--text-subtle)' }}>
+                              <Users size={12} className="mr-1" />
+                              {tournament.participantCount || 0}/{tournament.maxParticipants}
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-6">
@@ -262,7 +285,7 @@ export const Dashboard: React.FC = () => {
             </h2>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {pendingRequests.map(request => (
+              {pendingRequests.map((request) => (
                 <div key={request.id} className="card" style={{ borderColor: 'var(--warning-orange)', backgroundColor: 'rgba(255, 149, 0, 0.05)' }}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -302,7 +325,7 @@ export const Dashboard: React.FC = () => {
                   
                   <MatchRequestActions 
                     match={request} 
-                    onActionComplete={() => fetchMatches(user?.id || '')} 
+                    onActionComplete={() => { /* Queries will refetch automatically */ }} 
                   />
                 </div>
               ))}
@@ -340,7 +363,7 @@ export const Dashboard: React.FC = () => {
         <CreateMatchModal
           isOpen={showCreateForm}
           onClose={() => setShowCreateForm(false)}
-          onMatchCreated={handleMatchCreated}
+          onMatchCreated={() => setShowCreateForm(false)}
           mode="create"
         />
       )}

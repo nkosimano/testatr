@@ -1,5 +1,7 @@
 import React, { Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useAuthStore } from './stores/authStore';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider } from './contexts/AuthContext';
@@ -45,6 +47,48 @@ import './styles/components/tournament-form.css';
 // Initialize Sentry
 initSentry();
 
+// Create a client
+const queryClient = new QueryClient();
+
+const AppRoutes = ({ user }: { user: any }) => {
+  if (user) {
+    return (
+      <div className="app-layout">
+        <Sidebar />
+        <main className="app-main">
+          <Suspense fallback={<LoadingSpinner size="large" />}>
+            <Routes>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/matches" element={<MatchesPage />} />
+              <Route path="/matches/:matchId" element={<MatchDetailPage />} />
+              <Route path="/tournaments" element={<TournamentsPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/rankings" element={<RankingsPage />} />
+              <Route path="/umpire" element={<UmpirePage />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </Suspense>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen">
+      <Suspense fallback={<LoadingSpinner size="large" />}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignUpPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </Suspense>
+    </div>
+  );
+};
+
 function App() {
   const { initialize, loading, user } = useAuthStore();
 
@@ -52,56 +96,19 @@ function App() {
     initialize();
   }, [initialize]);
 
-  // You can still show a minimal loader for the initial auth check
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center"><LoadingSpinner /></div>;
   }
 
-  // For authenticated users, show the app layout with sidebar
-  if (user) {
-    return (
+  return (
+    <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ThemeProvider>
-          <div className="app-layout">
-            <Sidebar />
-            <main className="app-main">
-              <Suspense fallback={<LoadingSpinner size="large" />}>
-                <Routes>
-                  <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/matches" element={<MatchesPage />} />
-                  <Route path="/matches/:matchId" element={<MatchDetailPage />} />
-                  <Route path="/tournaments" element={<TournamentsPage />} />
-                  <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="/rankings" element={<RankingsPage />} />
-                  <Route path="/umpire" element={<UmpirePage />} />
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                </Routes>
-              </Suspense>
-            </main>
-          </div>
+          <AppRoutes user={user} />
         </ThemeProvider>
       </AuthProvider>
-    );
-  }
-
-  // For unauthenticated users, show auth routes
-  return (
-    <AuthProvider>
-      <ThemeProvider>
-        <div className="min-h-screen">
-          <Suspense fallback={<LoadingSpinner size="large" />}>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/signup" element={<SignUpPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="*" element={<Navigate to="/login" replace />} />
-            </Routes>
-          </Suspense>
-        </div>
-      </ThemeProvider>
-    </AuthProvider>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
   );
 }
 

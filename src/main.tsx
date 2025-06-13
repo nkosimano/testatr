@@ -1,12 +1,16 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App.tsx'
 import './index.css'
 
 // Set up API auth token from Supabase session
 import { supabase } from './lib/supabase'
 import { setApiAuthToken } from './lib/aws'
+
+// Create a client
+const queryClient = new QueryClient()
 
 // Get session and set API token
 supabase.auth.getSession().then(({ data: { session } }) => {
@@ -16,7 +20,7 @@ supabase.auth.getSession().then(({ data: { session } }) => {
 })
 
 // Listen for auth changes to update API token
-supabase.auth.onAuthStateChange((event, session) => {
+supabase.auth.onAuthStateChange((_event, session) => {
   if (session?.access_token) {
     setApiAuthToken(session.access_token)
   } else {
@@ -27,7 +31,7 @@ supabase.auth.onAuthStateChange((event, session) => {
 // Preload critical resources
 const preloadResources = () => {
   // Preload important images or other resources
-  const preloadLinks = [
+  const preloadLinks: string[] = [
     // Add any critical resources here
   ];
   
@@ -45,8 +49,10 @@ preloadResources();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </QueryClientProvider>
   </StrictMode>
 )

@@ -48,6 +48,8 @@ export interface Tournament {
   status: 'registration_open' | 'registration_closed' | 'in_progress' | 'completed';
   winnerId?: string;
   createdAt: string;
+  participantCount?: number;
+  isRegistered?: boolean;
 }
 
 export interface TournamentParticipant {
