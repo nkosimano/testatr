@@ -1,5 +1,5 @@
 import React from 'react';
-import { useRankings } from '../hooks/useRankings';
+import { useRankings } from '../hooks/useRankings.ts';
 import { Search, Filter, TrendingUp, TrendingDown, Minus, Trophy, Medal, Award, BarChart3 } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 
