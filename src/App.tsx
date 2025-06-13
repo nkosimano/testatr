@@ -14,6 +14,7 @@ const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
 const MatchesPage = React.lazy(() => import('./pages/MatchesPage'));
 const MatchDetailPage = React.lazy(() => import('./pages/MatchDetailPage'));
 const TournamentsPage = React.lazy(() => import('./pages/TournamentsPage'));
+const TournamentDetailPage = React.lazy(() => import('./pages/TournamentDetailPage'));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
 const RankingsPage = React.lazy(() => import('./pages/RankingsPage'));
 const UmpirePage = React.lazy(() => import('./pages/UmpirePage'));
@@ -62,7 +63,7 @@ const AppRoutes = ({ user }: { user: any }) => {
               <Route path="/matches" element={<MatchesPage />} />
               <Route path="/matches/:matchId" element={<MatchDetailPage />} />
               <Route path="/tournaments" element={<TournamentsPage />} />
-              <Route path="/tournaments/:tournamentId" element={<TournamentsPage />} />
+              <Route path="/tournaments/:tournamentId" element={<TournamentDetailPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/rankings" element={<RankingsPage />} />
               <Route path="/umpire" element={<UmpirePage />} />

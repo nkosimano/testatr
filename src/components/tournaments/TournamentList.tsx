@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Trophy, Calendar, MapPin, Users, Plus, Search, Filter } from 'lucide-react';
+import React, { useState } from 'react';
+import { Trophy, Calendar, MapPin, Users, Plus, Search, Filter, Eye } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useTournaments } from '../../hooks/useTournaments';
 import { useTournamentMutations } from '../../hooks/useTournamentMutations';
@@ -22,12 +22,12 @@ export const TournamentList: React.FC = () => {
     registerForTournament.mutate({ tournamentId, playerId: user.id });
   };
 
-  const handleViewDetails = (tournamentId: string) => {
-    navigate(`/tournaments/${tournamentId}`);
-  };
-
   const handleCreateTournament = () => {
     setShowCreateForm(true);
+  };
+
+  const handleViewDetails = (tournamentId: string) => {
+    navigate(`/tournaments/${tournamentId}`);
   };
 
   const formatStatus = (status: string) => {
@@ -48,13 +48,13 @@ export const TournamentList: React.FC = () => {
   if (isLoading) {
     return (
       <div className="tournaments-loading">
-        <LoadingSpinner size="large" text="Loading tournaments..." subtext="Retrieving tournament data" />
+        <LoadingSpinner size="large" />
       </div>
     );
   }
 
   if (error) {
-    return <div className="tournaments-container">Error loading tournaments: {error.message}</div>;
+    return <div className="tournaments-container">Error loading tournaments.</div>;
   }
 
   return (
@@ -156,7 +156,7 @@ export const TournamentList: React.FC = () => {
                   </div>
                   <div className="tournament-card-info-item">
                     <Users size={14} />
-                    <span>{tournament.participantCount || 0}/{tournament.max_participants}</span>
+                    <span>{tournament.participantCount}/{tournament.max_participants}</span>
                   </div>
                 </div>
 
@@ -171,9 +171,10 @@ export const TournamentList: React.FC = () => {
                 {/* Action Buttons */}
                 <div className="tournament-card-actions">
                   <button 
-                    onClick={() => handleViewDetails(tournament.id)}
                     className="tournament-card-btn tournament-card-btn-secondary"
+                    onClick={() => handleViewDetails(tournament.id)}
                   >
+                    <Eye size={14} />
                     Details
                   </button>
 
