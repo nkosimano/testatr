@@ -87,6 +87,9 @@ export const useTournaments = (tournamentId?: string) => {
         { event: '*', schema: 'public', table: 'tournament_participants' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['tournaments'] });
+          if (tournamentId) {
+            queryClient.invalidateQueries({ queryKey: ['tournamentParticipants', tournamentId] });
+          }
         }
       )
       .subscribe();
@@ -94,12 +97,12 @@ export const useTournaments = (tournamentId?: string) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, tournamentId]);
 
   return {
     tournaments: tournaments || [],
     participants,
-    isLoading: isLoadingTournaments || isLoadingParticipants,
+    isLoading: isLoadingTournaments || (!!tournamentId && isLoadingParticipants),
     error: tournamentsError || participantsError,
   };
 };

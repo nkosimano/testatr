@@ -20,19 +20,32 @@ export const MatchList: React.FC = () => {
 
   const { user } = useAuthStore();
   const { data: rawMatches = [], isLoading } = useMatches(user?.id);
+  const navigate = useNavigate();
 
   const matches: Match[] = useMemo(() => {
     if (!rawMatches) return [];
-    // The useMatches hook returns raw data, we need to map it to our Match type
+    // Map the raw data to our Match type
     return rawMatches.map((m: any) => ({
-      ...m,
+      id: m.id,
+      date: m.date,
+      location: m.location,
+      status: m.status,
+      score: m.score,
+      player1: m.player1,
+      player2: m.player2,
+      winnerProfile: m.winner,
       challengerId: m.player1_id,
       challengedId: m.player2_id,
       createdAt: m.created_at,
+      challengerScore: m.challenger_score,
+      challengedScore: m.challenged_score,
+      winner: m.winner_id,
+      detailedStatsId: m.detailed_stats_id,
+      scoreDisplay: m.score_display,
     }));
   }, [rawMatches]);
+
   const { updateMatch } = useMatchMutations(user?.id);
-  const navigate = useNavigate();
 
   const filteredMatches = useMemo(() => {
     let filtered = matches;

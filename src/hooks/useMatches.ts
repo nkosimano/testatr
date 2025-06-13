@@ -10,11 +10,32 @@ const fetchMatches = async (userId?: string): Promise<Match[]> => {
   if (!userId) {
     return [];
   }
-  const response = await apiClient.getMatches(userId);
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to fetch matches');
+  
+  try {
+    // First try to use the API Gateway endpoint
+    const response = await apiClient.getMatches(userId);
+    if (response.success && Array.isArray(response.data)) {
+      return response.data;
+    }
+    
+    // Fallback to direct Supabase query if API fails
+    const { data, error } = await supabase
+      .from('matches')
+      .select(`
+        *,
+        player1:profiles!matches_player1_id_fkey(username, elo_rating),
+        player2:profiles!matches_player2_id_fkey(username, elo_rating),
+        winner:profiles!matches_winner_id_fkey(username)
+      `)
+      .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
+      .order('date', { ascending: false });
+      
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching matches:', error);
+    throw error;
   }
-  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const useMatches = (userId?: string) => {

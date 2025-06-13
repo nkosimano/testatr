@@ -18,14 +18,31 @@ const updateMatchFn = async ({ id, updates }: { id: string; updates: MatchUpdate
 };
 
 const awardPointFn = async ({ matchId, winningPlayerId, pointType }: { matchId: string; winningPlayerId: string; pointType?: string }) => {
-  const response = await apiClient.updateMatchScore(matchId, {
-    winningPlayerId,
-    pointType: pointType || 'point_won',
-  });
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to update score');
+  try {
+    // First try to use the API Gateway endpoint
+    const response = await apiClient.updateMatchScore(matchId, {
+      winningPlayerId,
+      pointType: pointType || 'point_won',
+    });
+    
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to update score');
+    }
+    
+    return response.data;
+  } catch (apiError) {
+    console.error('API error, falling back to direct Supabase call:', apiError);
+    
+    // Fallback to direct Supabase RPC call
+    const { data, error } = await supabase.rpc('calculate_tennis_score', {
+      match_id: matchId,
+      winning_player_id: winningPlayerId,
+      point_type: pointType || 'point_won'
+    });
+    
+    if (error) throw error;
+    return data;
   }
-  return response.data;
 };
 
 export const useMatchMutations = (userId?: string) => {

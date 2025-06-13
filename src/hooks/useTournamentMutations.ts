@@ -38,9 +38,9 @@ export const useTournamentMutations = () => {
 
   const updateTournament = useMutation({
     mutationFn: updateTournamentFn,
-    onSuccess: (_, _variables) => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tournaments'] });
-      // Also invalidate the specific tournament details if you have a query for that
+      queryClient.invalidateQueries({ queryKey: ['tournament', variables.id] });
     },
   });
 

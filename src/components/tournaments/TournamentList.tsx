@@ -5,6 +5,7 @@ import { useTournaments } from '../../hooks/useTournaments';
 import { useTournamentMutations } from '../../hooks/useTournamentMutations';
 import LoadingSpinner from '../LoadingSpinner';
 import TournamentCreateForm from '../TournamentCreateForm';
+import { useNavigate } from 'react-router-dom';
 
 export const TournamentList: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -14,6 +15,7 @@ export const TournamentList: React.FC = () => {
   const user = useAuthStore((state) => state.user);
   const { tournaments, isLoading, error } = useTournaments();
   const { registerForTournament } = useTournamentMutations();
+  const navigate = useNavigate();
 
   const handleRegister = (tournamentId: string) => {
     if (!user) return;
@@ -22,6 +24,10 @@ export const TournamentList: React.FC = () => {
 
   const handleCreateTournament = () => {
     setShowCreateForm(true);
+  };
+
+  const handleViewDetails = (tournamentId: string) => {
+    navigate(`/tournaments/${tournamentId}`);
   };
 
   const formatStatus = (status: string) => {
@@ -42,13 +48,13 @@ export const TournamentList: React.FC = () => {
   if (isLoading) {
     return (
       <div className="tournaments-loading">
-        <LoadingSpinner size="large" />
+        <LoadingSpinner size="large" text="Loading tournaments..." subtext="Retrieving tournament data" />
       </div>
     );
   }
 
   if (error) {
-    return <div className="tournaments-container">Error loading tournaments.</div>;
+    return <div className="tournaments-container">Error loading tournaments: {error.message}</div>;
   }
 
   return (
@@ -150,7 +156,7 @@ export const TournamentList: React.FC = () => {
                   </div>
                   <div className="tournament-card-info-item">
                     <Users size={14} />
-                    <span>{tournament.participantCount}/{tournament.max_participants}</span>
+                    <span>{tournament.participantCount || 0}/{tournament.max_participants}</span>
                   </div>
                 </div>
 
@@ -164,7 +170,10 @@ export const TournamentList: React.FC = () => {
 
                 {/* Action Buttons */}
                 <div className="tournament-card-actions">
-                  <button className="tournament-card-btn tournament-card-btn-secondary">
+                  <button 
+                    onClick={() => handleViewDetails(tournament.id)}
+                    className="tournament-card-btn tournament-card-btn-secondary"
+                  >
                     Details
                   </button>
 

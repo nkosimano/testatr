@@ -45,7 +45,6 @@ interface TennisScore {
 export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => {
   const { user } = useAuthStore();
   const [score, setScore] = useState<TennisScore | null>(null);
-
   const [pointType, setPointType] = useState<PointType>('point_won');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -205,7 +204,7 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
   if (!score) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="loading-spinner"></div>
+        <LoadingSpinner size="large" text="Loading match data..." />
       </div>
     );
   }

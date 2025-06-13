@@ -15,30 +15,35 @@ import {
   Target,
   Award
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
 import { apiClient } from '../lib/aws';
 import MatchScoring from './matches/MatchScoring';
+import LoadingSpinner from './LoadingSpinner';
 import type { Database } from '../types/database';
 
 type Tournament = Database['public']['Tables']['tournaments']['Row'];
 type Match = Database['public']['Tables']['matches']['Row'] & {
-  player1?: { username: string }
-  player2?: { username: string }
+  player1?: { username: string; elo_rating: number }
+  player2?: { username: string; elo_rating: number }
 };
 
 interface MatchScore {
-  player1Sets: number[];
-  player2Sets: number[];
-  player1Games: number;
-  player2Games: number;
-  player1Points: number;
-  player2Points: number;
-  currentSet: number;
-  isDeuce: boolean;
-  advantage: 'player1' | 'player2' | null;
-  servingPlayer: 'player1' | 'player2';
+  sets: Array<{
+    player1_games: number;
+    player2_games: number;
+    games: Array<{
+      player1_points: number;
+      player2_points: number;
+      server_id: string;
+    }>;
+  }>;
+  current_game: {
+    player1: string;
+    player2: string;
+  };
+  server_id: string;
+  is_tiebreak: boolean;
 }
 
 interface MatchScoreHistory {
@@ -48,8 +53,7 @@ interface MatchScoreHistory {
 }
 
 const UmpirePage: React.FC = () => {
-  const { user } = useAuth();
-  const authStore = useAuthStore();
+  const { user } = useAuthStore();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -64,6 +68,7 @@ const UmpirePage: React.FC = () => {
   const [player1Profile, setPlayer1Profile] = useState<any>(null);
   const [player2Profile, setPlayer2Profile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [pointType, setPointType] = useState<string>('normal');
 
   useEffect(() => {
     loadTournaments();
@@ -76,11 +81,11 @@ const UmpirePage: React.FC = () => {
   }, [selectedTournament]);
 
   const loadTournaments = async () => {
-    if (!user && !authStore.user) return;
+    if (!user) return;
     
     setIsLoading(true);
     try {
-      const userId = user?.id || authStore.user?.id;
+      const userId = user.id;
       
       // Fetch tournaments where user is organizer, umpire, or participant
       const { data, error } = await supabase
@@ -106,8 +111,8 @@ const UmpirePage: React.FC = () => {
         .from('matches')
         .select(`
           *,
-          player1:profiles!matches_player1_id_fkey(username),
-          player2:profiles!matches_player2_id_fkey(username)
+          player1:profiles!matches_player1_id_fkey(username, elo_rating),
+          player2:profiles!matches_player2_id_fkey(username, elo_rating)
         `)
         .eq('tournament_id', selectedTournament.id)
         .order('date', { ascending: true });
@@ -116,74 +121,6 @@ const UmpirePage: React.FC = () => {
       setMatches(data || []);
     } catch (error) {
       console.error('Error loading matches:', error);
-    }
-  };
-
-  const initializeMatchScore = (): MatchScore => {
-    return {
-      player1Sets: [],
-      player2Sets: [],
-      player1Games: 0,
-      player2Games: 0,
-      player1Points: 0,
-      player2Points: 0,
-      currentSet: 1,
-      isDeuce: false,
-      advantage: null,
-      servingPlayer: 'player1'
-    };
-  };
-
-  const saveScoreToHistory = (score: MatchScore, action: string) => {
-    const historyEntry: MatchScoreHistory = {
-      score: JSON.parse(JSON.stringify(score)), // Deep clone
-      timestamp: Date.now(),
-      action
-    };
-    
-    setScoreHistory(prev => {
-      const newHistory = [...prev, historyEntry];
-      // Keep only last 50 actions to prevent memory issues
-      return newHistory.slice(-50);
-    });
-    setCanUndo(true);
-  };
-
-  const recordMatchEvent = async (
-    eventType: string,
-    playerId: string,
-    description: string,
-    scoreSnapshot: any
-  ) => {
-    if (!activeMatch) return;
-
-    try {
-      await supabase.from('match_events').insert({
-        match_id: activeMatch.id,
-        event_type: eventType,
-        player_id: playerId,
-        description,
-        score_snapshot: scoreSnapshot,
-        metadata: { pointType }
-      });
-    } catch (error) {
-      console.error('Error recording match event:', error);
-    }
-  };
-
-  const getPointDisplay = (points: number, isDeuce: boolean, advantage: 'player1' | 'player2' | null, player: 'player1' | 'player2') => {
-    if (isDeuce) {
-      if (advantage === player) return 'AD';
-      if (advantage && advantage !== player) return '40';
-      return '40';
-    }
-    
-    switch (points) {
-      case 0: return '0';
-      case 1: return '15';
-      case 2: return '30';
-      case 3: return '40';
-      default: return '40';
     }
   };
 
@@ -211,7 +148,7 @@ const UmpirePage: React.FC = () => {
       
       setShowStartConfirmation(false);
       setTournamentToStart(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting tournament:', error);
       alert(`Failed to start tournament: ${error.message}`);
     }
@@ -256,173 +193,6 @@ const UmpirePage: React.FC = () => {
     setPlayer2Profile(null);
   };
 
-  const awardPoint = async (player: 'player1' | 'player2') => {
-    if (!matchScore || !activeMatch) return;
-
-    // Save current state before making changes
-    saveScoreToHistory(matchScore, `Point awarded to ${player}`);
-
-    const newScore = { ...matchScore };
-    const opponent = player === 'player1' ? 'player2' : 'player1';
-    const playerId = player === 'player1' ? activeMatch.player1_id : activeMatch.player2_id;
-
-    if (!playerId) return;
-
-    // Award point
-    if (player === 'player1') {
-      newScore.player1Points++;
-    } else {
-      newScore.player2Points++;
-    }
-
-    // Determine event type and description based on point type
-    let eventType = 'move';
-    let description = 'Point won';
-
-    switch (pointType) {
-      case 'ace':
-        eventType = 'ace';
-        description = 'Service ace';
-        break;
-      case 'double_fault':
-        eventType = 'double_fault';
-        description = 'Double fault';
-        break;
-      case 'winner':
-        eventType = 'winner';
-        description = 'Winner shot';
-        break;
-      case 'unforced_error':
-        eventType = 'unforced_error';
-        description = 'Unforced error by opponent';
-        break;
-    }
-
-    // Check for game win
-    const playerPoints = player === 'player1' ? newScore.player1Points : newScore.player2Points;
-    const opponentPoints = player === 'player1' ? newScore.player2Points : newScore.player1Points;
-
-    // Game logic
-    if (playerPoints >= 4 && playerPoints - opponentPoints >= 2) {
-      // Player wins the game
-      if (player === 'player1') {
-        newScore.player1Games++;
-      } else {
-        newScore.player2Games++;
-      }
-      
-      // Reset points
-      newScore.player1Points = 0;
-      newScore.player2Points = 0;
-      newScore.isDeuce = false;
-      newScore.advantage = null;
-      
-      // Switch serve
-      newScore.servingPlayer = newScore.servingPlayer === 'player1' ? 'player2' : 'player1';
-
-      // Record game won event
-      await recordMatchEvent('game_won', playerId, `Game won by ${player}`, newScore);
-
-      // Check for set win (6 games with 2 game lead, or 7-6)
-      const playerGames = player === 'player1' ? newScore.player1Games : newScore.player2Games;
-      const opponentGames = player === 'player1' ? newScore.player2Games : newScore.player1Games;
-
-      if ((playerGames >= 6 && playerGames - opponentGames >= 2) || playerGames === 7) {
-        // Player wins the set
-        if (player === 'player1') {
-          newScore.player1Sets.push(newScore.player1Games);
-          newScore.player2Sets.push(newScore.player2Games);
-        } else {
-          newScore.player1Sets.push(newScore.player1Games);
-          newScore.player2Sets.push(newScore.player2Games);
-        }
-        
-        // Reset games for next set
-        newScore.player1Games = 0;
-        newScore.player2Games = 0;
-        newScore.currentSet++;
-
-        // Record set won event
-        await recordMatchEvent('set_won', playerId, `Set ${newScore.currentSet - 1} won by ${player}`, newScore);
-      }
-    } else if (playerPoints >= 3 && opponentPoints >= 3) {
-      // Deuce situation
-      if (playerPoints === opponentPoints) {
-        newScore.isDeuce = true;
-        newScore.advantage = null;
-      } else if (playerPoints - opponentPoints === 1) {
-        newScore.isDeuce = true;
-        newScore.advantage = player;
-      }
-    }
-
-    // Record the point event
-    await recordMatchEvent(eventType, playerId, description, newScore);
-
-    setMatchScore(newScore);
-    
-    // Reset point type to normal after awarding
-    setPointType('normal');
-  };
-
-  const undoLastPoint = () => {
-    if (scoreHistory.length === 0) return;
-
-    const lastEntry = scoreHistory[scoreHistory.length - 1];
-    setMatchScore(lastEntry.score);
-    
-    setScoreHistory(prev => prev.slice(0, -1));
-    setCanUndo(scoreHistory.length > 1);
-    
-    // Show confirmation message
-    console.log(`Undid: ${lastEntry.action}`);
-  };
-
-  const handleEndMatch = async () => {
-    if (!activeMatch || !matchScore) return;
-    
-    try {
-      // Determine winner based on sets won
-      const player1SetsWon = matchScore.player1Sets.filter((games, index) => 
-        games > matchScore.player2Sets[index]
-      ).length;
-      const player2SetsWon = matchScore.player2Sets.filter((games, index) => 
-        games > matchScore.player1Sets[index]
-      ).length;
-
-      const winnerId = player1SetsWon > player2SetsWon ? activeMatch.player1_id : activeMatch.player2_id;
-      const score = `${matchScore.player1Sets.join('-')} vs ${matchScore.player2Sets.join('-')}`;
-
-      if (winnerId) {
-        // Update match with result
-        const { error } = await supabase
-          .from('matches')
-          .update({
-            status: 'completed',
-            winner_id: winnerId,
-            score
-          })
-          .eq('id', activeMatch.id);
-          
-        if (error) throw error;
-        
-        // Record match end event
-        await recordMatchEvent(
-          'checkmate',
-          winnerId,
-          `Match completed. Final score: ${score}`,
-          matchScore
-        );
-        
-        await loadMatches();
-        handleBackToMatches();
-        setShowEndMatchConfirmation(false);
-      }
-    } catch (error) {
-      console.error('Error ending match:', error);
-    }
-  };
-
   const getMatchStatus = (match: Match) => {
     if (match.status === 'completed') return 'Completed';
     if (match.status === 'in_progress') return 'In Progress';
@@ -438,10 +208,9 @@ const UmpirePage: React.FC = () => {
   };
 
   const getUserRole = (tournament: Tournament) => {
-    const userId = user?.id || authStore.user?.id;
-    if (!userId) return '';
+    if (!user) return '';
     
-    if (tournament.organizer_id === userId) return 'Organizer';
+    if (tournament.organizer_id === user.id) return 'Organizer';
     return '';
   };
 
@@ -471,7 +240,7 @@ const UmpirePage: React.FC = () => {
 
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="loading-spinner"></div>
+            <LoadingSpinner size="large" text="Loading tournaments..." />
           </div>
         ) : tournaments.length === 0 ? (
           <div className="umpire-empty-state">
@@ -533,7 +302,7 @@ const UmpirePage: React.FC = () => {
                         </div>
                       )}
                       
-                      {tournament.status === 'registration_closed' && tournament.organizer_id === (user?.id || authStore.user?.id) && (
+                      {tournament.status === 'registration_closed' && tournament.organizer_id === user?.id && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -599,7 +368,7 @@ const UmpirePage: React.FC = () => {
 
                         {match.score && (
                           <div className="umpire-match-score">
-                            Final Score: {match.score}
+                            Final Score: {typeof match.score === 'string' ? match.score : 'Score available'}
                           </div>
                         )}
 
