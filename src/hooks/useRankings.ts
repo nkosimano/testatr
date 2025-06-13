@@ -1,140 +1,131 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
-export interface RankedPlayer {
-  userId: string;
+interface RankingPlayer {
+  user_id: string;
   username: string;
-  eloRating: number;
-  matchesPlayed: number;
-  matchesWon: number;
-  skillLevel: string;
-  rank: number;
-  previousRank: number | null;
-  rankChange: 'up' | 'down' | 'same' | 'new';
-  rankChangeValue: number;
-  eloChange: number;
+  elo_rating: number;
+  matches_played: number;
+  matches_won: number;
+  rank?: number;
+  previousRank?: number;
+  rankChange?: 'up' | 'down' | 'same' | 'new';
+  rankChangeValue?: number;
 }
 
+const RANKINGS_STORAGE_KEY = 'africa-tennis-previous-rankings';
+
+const fetchRankings = async (): Promise<RankingPlayer[]> => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('user_id, username, elo_rating, matches_played, matches_won')
+    .order('elo_rating', { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  // Add rank to each player
+  return data.map((player, index) => ({
+    ...player,
+    rank: index + 1
+  }));
+};
+
 export const useRankings = () => {
-  const [players, setPlayers] = useState<RankedPlayer[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const profilesRef = useRef<any[]>([]);
+  const queryClient = useQueryClient();
 
-  const fetchRankings = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
+  // Load previous rankings from localStorage
+  const loadPreviousRankings = (): RankingPlayer[] => {
     try {
-      const { data: currentProfiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('elo_rating', { ascending: false });
-
-      if (profilesError) throw profilesError;
-
-      profilesRef.current = currentProfiles || [];
-
-      if (!currentProfiles || currentProfiles.length === 0) {
-        setPlayers([]);
-        return;
-      }
-
-      const storedRankingsStr = localStorage.getItem('previous_rankings');
-      let storedRankings: { user_id: string; elo_rating: number }[] = [];
-
-      try {
-        if (storedRankingsStr) {
-          storedRankings = JSON.parse(storedRankingsStr);
-        }
-      } catch (e) {
-        console.error('Error parsing stored rankings:', e);
-        storedRankings = [];
-      }
-
-      const previousDataMap = new Map<string, { rank: number; eloRating: number }>();
-      if (Array.isArray(storedRankings)) {
-        storedRankings.forEach((player, index) => {
-          if (player && player.user_id) {
-            previousDataMap.set(player.user_id, {
-              rank: index + 1,
-              eloRating: player.elo_rating,
-            });
-          }
-        });
-      }
-
-      const rankedPlayers: RankedPlayer[] = currentProfiles.map((profile, index) => {
-        const currentRank = index + 1;
-        const previousData = previousDataMap.get(profile.user_id);
-        const previousRank = previousData ? previousData.rank : null;
-        const previousElo = previousData ? previousData.eloRating : profile.elo_rating;
-        let rankChange: 'up' | 'down' | 'same' | 'new' = 'same';
-        let rankChangeValue = 0;
-        if (previousRank === null) {
-          rankChange = 'new';
-        } else if (currentRank < previousRank) {
-          rankChange = 'up';
-          rankChangeValue = previousRank - currentRank;
-        } else if (currentRank > previousRank) {
-          rankChange = 'down';
-          rankChangeValue = currentRank - previousRank;
-        }
-        const eloChange = profile.elo_rating - previousElo;
-        return {
-          userId: profile.user_id,
-          username: profile.username,
-          eloRating: profile.elo_rating,
-          matchesPlayed: profile.matches_played,
-          matchesWon: profile.matches_won,
-          skillLevel: profile.skill_level,
-          rank: currentRank,
-          previousRank,
-          rankChange,
-          rankChangeValue,
-          eloChange,
-        };
-      });
-
-      setPlayers(rankedPlayers);
-    } catch (err: any) {
-      console.error('Error fetching rankings:', err);
-      setError(err.message || 'Failed to load rankings');
-    } finally {
-      setIsLoading(false);
+      const stored = localStorage.getItem(RANKINGS_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Error loading previous rankings:', error);
+      return [];
     }
-  }, []);
+  };
 
-  const updateBaseline = useCallback(() => {
-    if (profilesRef.current.length > 0) {
-      localStorage.setItem(
-        'previous_rankings',
-        JSON.stringify(
-          profilesRef.current.map(p => ({
-            user_id: p.user_id,
-            elo_rating: p.elo_rating,
-          }))
-        )
-      );
+  // Save current rankings to localStorage when component unmounts
+  const savePreviousRankings = (rankings: RankingPlayer[]) => {
+    try {
+      localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(rankings));
+    } catch (error) {
+      console.error('Error saving previous rankings:', error);
     }
-  }, []);
+  };
 
+  const { data: currentRankings = [], ...queryResult } = useQuery({
+    queryKey: ['rankings'],
+    queryFn: fetchRankings,
+  });
+
+  // Calculate rank changes by comparing with previous rankings
+  const rankingsWithChanges = currentRankings.map(player => {
+    const previousRankings = loadPreviousRankings();
+    const prevPlayer = previousRankings.find(p => p.user_id === player.user_id);
+    
+    let rankChange: 'up' | 'down' | 'same' | 'new' = 'new';
+    let rankChangeValue = 0;
+    let previousRank: number | undefined = undefined;
+    
+    if (prevPlayer) {
+      previousRank = prevPlayer.rank;
+      
+      if (player.rank < prevPlayer.rank) {
+        rankChange = 'up';
+        rankChangeValue = prevPlayer.rank - player.rank;
+      } else if (player.rank > prevPlayer.rank) {
+        rankChange = 'down';
+        rankChangeValue = player.rank - prevPlayer.rank;
+      } else {
+        rankChange = 'same';
+      }
+    }
+    
+    return {
+      ...player,
+      previousRank,
+      rankChange,
+      rankChangeValue
+    };
+  });
+
+  // Save rankings when component unmounts
   useEffect(() => {
-    fetchRankings();
-    const subscription = supabase
+    return () => {
+      if (currentRankings.length > 0) {
+        savePreviousRankings(currentRankings);
+      }
+    };
+  }, [currentRankings]);
+
+  // Set up real-time subscription to rankings changes
+  useEffect(() => {
+    const channel = supabase
       .channel('rankings-changes')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'profiles' },
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          columns: ['elo_rating', 'matches_played', 'matches_won']
+        },
         () => {
-          fetchRankings();
+          queryClient.invalidateQueries({ queryKey: ['rankings'] });
         }
       )
       .subscribe();
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, [fetchRankings]);
 
-  return { players, isLoading, error, updateBaseline };
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  return {
+    ...queryResult,
+    rankings: rankingsWithChanges
+  };
 };

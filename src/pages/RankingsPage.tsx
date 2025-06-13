@@ -1,24 +1,20 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Search, TrendingUp, TrendingDown, Minus, Trophy, Medal, Award, BarChart3 } from 'lucide-react';
-import { useRankings, RankedPlayer } from '../hooks/useRankings';
+import React, { useState, useMemo } from 'react';
+import { Search, Filter, TrendingUp, TrendingDown, Minus, Trophy, Medal, Award, BarChart3 } from 'lucide-react';
+import { useRankings } from '../hooks/useRankings';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const RankingsPage: React.FC = () => {
-  const { players, isLoading, error, updateBaseline } = useRankings();
   const [searchQuery, setSearchQuery] = useState('');
   const [skillFilter, setSkillFilter] = useState<'all' | 'beginner' | 'intermediate' | 'advanced' | 'expert'>('all');
   const [sortBy, setSortBy] = useState<'elo_rating' | 'username' | 'matches_played'>('elo_rating');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  useEffect(() => {
-    // When the component unmounts, update the baseline snapshot for the next visit.
-    return () => {
-      updateBaseline();
-    };
-  }, [updateBaseline]);
+  const { rankings, isLoading, error } = useRankings();
 
   const filteredAndSortedPlayers = useMemo(() => {
-    let filtered = [...players];
+    if (!rankings) return [];
+    
+    let filtered = [...rankings];
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -29,7 +25,7 @@ const RankingsPage: React.FC = () => {
 
     // Apply skill level filter
     if (skillFilter !== 'all') {
-      filtered = filtered.filter(player => player.skillLevel === skillFilter);
+      filtered = filtered.filter(player => player.skill_level === skillFilter);
     }
 
     // Apply sorting
@@ -38,13 +34,13 @@ const RankingsPage: React.FC = () => {
       
       switch (sortBy) {
         case 'elo_rating':
-          comparison = a.eloRating - b.eloRating;
+          comparison = a.elo_rating - b.elo_rating;
           break;
         case 'username':
           comparison = a.username.localeCompare(b.username);
           break;
         case 'matches_played':
-          comparison = a.matchesPlayed - b.matchesPlayed;
+          comparison = a.matches_played - b.matches_played;
           break;
       }
 
@@ -52,7 +48,7 @@ const RankingsPage: React.FC = () => {
     });
 
     return filtered;
-  }, [players, searchQuery, skillFilter, sortBy, sortOrder]);
+  }, [rankings, searchQuery, skillFilter, sortBy, sortOrder]);
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Trophy size={20} style={{ color: 'var(--accent-yellow)' }} />;
@@ -61,7 +57,7 @@ const RankingsPage: React.FC = () => {
     return null;
   };
 
-  const getRankChangeIcon = (change: RankedPlayer['rankChange'], value: number) => {
+  const getRankChangeIcon = (change: 'up' | 'down' | 'same' | 'new', value: number) => {
     switch (change) {
       case 'up':
         return (
@@ -110,7 +106,7 @@ const RankingsPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="rankings-page">
-        <LoadingSpinner size="large" text="Loading rankings..." />
+        <LoadingSpinner size="large" text="Loading rankings..." subtext="Retrieving player data" />
       </div>
     );
   }
@@ -120,8 +116,11 @@ const RankingsPage: React.FC = () => {
       <div className="rankings-page">
         <div className="text-center py-12">
           <h3 className="text-lg font-medium" style={{ color: 'var(--error-pink)' }}>
-            Error loading rankings: {error}
+            Error loading rankings: {error instanceof Error ? error.message : 'Unknown error'}
           </h3>
+          <p className="mt-4" style={{ color: 'var(--text-subtle)' }}>
+            Please try refreshing the page or contact support if the problem persists.
+          </p>
         </div>
       </div>
     );
@@ -214,15 +213,15 @@ const RankingsPage: React.FC = () => {
 
           <div className="rankings-table-body">
             {filteredAndSortedPlayers.map((player) => {
-              const winRate = player.matchesPlayed > 0 
-                ? ((player.matchesWon / player.matchesPlayed) * 100).toFixed(1)
+              const winRate = player.matches_played > 0 
+                ? ((player.matches_won / player.matches_played) * 100).toFixed(1)
                 : '0.0';
 
               return (
-                <div key={player.userId} className="rankings-table-row">
+                <div key={player.user_id} className="rankings-table-row">
                   <div className="rank-col">
                     <div className="rank-display">
-                      {getRankIcon(player.rank)}
+                      {getRankIcon(player.rank || 0)}
                       <span className="rank-number">#{player.rank}</span>
                     </div>
                   </div>
@@ -236,9 +235,9 @@ const RankingsPage: React.FC = () => {
                         <div className="player-name">{player.username}</div>
                         <div 
                           className="player-skill"
-                          style={{ color: getSkillLevelColor(player.skillLevel) }}
+                          style={{ color: getSkillLevelColor(player.skill_level || 'beginner') }}
                         >
-                          {player.skillLevel}
+                          {player.skill_level || 'beginner'}
                         </div>
                       </div>
                     </div>
@@ -246,28 +245,15 @@ const RankingsPage: React.FC = () => {
 
                   <div className="rating-col">
                     <div className="rating-display">
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                        <span className="rating-value">{player.eloRating}</span>
-                        {player.eloChange !== 0 && (
-                          <span 
-                            style={{
-                              color: player.eloChange > 0 ? 'var(--success-green)' : 'var(--error-pink)',
-                              fontSize: '0.8em',
-                              fontWeight: '700',
-                            }}
-                          >
-                            ({player.eloChange > 0 ? '+' : ''}{player.eloChange})
-                          </span>
-                        )}
-                      </div>
+                      <span className="rating-value">{player.elo_rating}</span>
                       <span className="rating-label">Rating</span>
                     </div>
                   </div>
 
                   <div className="matches-col">
                     <div className="matches-display">
-                      <span className="matches-played">{player.matchesPlayed}</span>
-                      <span className="matches-won">({player.matchesWon}W)</span>
+                      <span className="matches-played">{player.matches_played}</span>
+                      <span className="matches-won">({player.matches_won}W)</span>
                     </div>
                   </div>
 
@@ -278,7 +264,7 @@ const RankingsPage: React.FC = () => {
                   </div>
 
                   <div className="change-col">
-                    {getRankChangeIcon(player.rankChange, player.rankChangeValue)}
+                    {player.rankChange && getRankChangeIcon(player.rankChange, player.rankChangeValue || 0)}
                   </div>
                 </div>
               );
