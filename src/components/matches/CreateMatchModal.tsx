@@ -75,15 +75,16 @@ const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
         
       if (error) throw error;
       setAvailablePlayers(data || []);
-      setFilteredPlayers(data?.slice(0, 8) || []);
+      // Don't set filtered players here - wait for search query
     } catch (error) {
       console.error('Error loading players:', error);
     }
   };
 
   const filterPlayers = () => {
-    if (!searchQuery.trim()) {
-      setFilteredPlayers(availablePlayers.slice(0, 8));
+    // Only show players if search query is at least 2 characters
+    if (searchQuery.length < 2) {
+      setFilteredPlayers([]);
       return;
     }
 
@@ -238,6 +239,7 @@ const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
                     onClick={() => {
                       setSelectedPlayer(null);
                       setShowPlayerSearch(true);
+                      setSearchQuery('');
                     }}
                     className="match-change-player-btn"
                   >
@@ -253,39 +255,43 @@ const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="form-input search-input"
-                      placeholder="Search players by name, skill level, or location..."
+                      placeholder="Search players by name or skill level (min 2 characters)..."
                     />
                   </div>
                   
-                  <div className="match-players-grid">
-                    {filteredPlayers.map((player) => (
-                      <div
-                        key={player.user_id}
-                        onClick={() => {
-                          setSelectedPlayer(player);
-                          setShowPlayerSearch(false);
-                        }}
-                        className="match-player-card"
-                      >
-                        <div className="player-avatar">
-                          {getInitials(player.username)}
-                        </div>
-                        <div className="match-player-details">
-                          <div className="match-player-name">{player.username}</div>
-                          <div className={`rating-badge ${getRatingClass(player.skill_level)}`}>
-                            {player.skill_level}
+                  {searchQuery.length < 2 ? (
+                    <div className="p-4 text-center" style={{ color: 'var(--text-subtle)' }}>
+                      Type at least 2 characters to search for players
+                    </div>
+                  ) : filteredPlayers.length > 0 ? (
+                    <div className="match-players-grid">
+                      {filteredPlayers.map((player) => (
+                        <div
+                          key={player.user_id}
+                          onClick={() => {
+                            setSelectedPlayer(player);
+                            setShowPlayerSearch(false);
+                          }}
+                          className="match-player-card"
+                        >
+                          <div className="player-avatar">
+                            {getInitials(player.username)}
                           </div>
-                          <div className="match-player-stats">
-                            <span>Rating: {player.elo_rating}</span>
-                            <span>•</span>
-                            <span>{player.matches_played} matches</span>
+                          <div className="match-player-details">
+                            <div className="match-player-name">{player.username}</div>
+                            <div className={`rating-badge ${getRatingClass(player.skill_level)}`}>
+                              {player.skill_level}
+                            </div>
+                            <div className="match-player-stats">
+                              <span>Rating: {player.elo_rating}</span>
+                              <span>•</span>
+                              <span>{player.matches_played} matches</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {filteredPlayers.length === 0 && (
+                      ))}
+                    </div>
+                  ) : (
                     <div className="match-no-players">
                       <Users size={32} style={{ color: 'var(--text-muted)' }} />
                       <p>No players found matching your search.</p>
@@ -483,4 +489,4 @@ const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
   );
 };
 
-export default CreateMatchModal
+export default CreateMatchModal;
