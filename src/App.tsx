@@ -14,7 +14,7 @@ const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
 const MatchesPage = React.lazy(() => import('./pages/MatchesPage'));
 const MatchDetailPage = React.lazy(() => import('./pages/MatchDetailPage'));
 const TournamentsPage = React.lazy(() => import('./pages/TournamentsPage'));
-const TournamentDetailPage = React.lazy(() => import('./pages/TournamentDetailPage'));
+const TournamentDetailPage = React.lazy(() => import('./pages/TournamentDetailPage.tsx'));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
 const RankingsPage = React.lazy(() => import('./pages/RankingsPage'));
 const UmpirePage = React.lazy(() => import('./pages/UmpirePage'));
