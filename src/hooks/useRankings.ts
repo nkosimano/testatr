@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
 interface RankingPlayer {
@@ -17,68 +17,27 @@ interface RankingPlayer {
 
 const RANKINGS_STORAGE_KEY = 'africa-tennis-previous-rankings';
 
-const fetchRankings = async (): Promise<RankingPlayer[]> => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('user_id, username, elo_rating, matches_played, matches_won, skill_level, profile_picture_url')
-    .order('elo_rating', { ascending: false });
+/**
+ * Compares new rankings with previous rankings to determine rank changes.
+ * @param newRankings The freshly fetched and ranked player data.
+ * @param previousRankings The previously stored ranked player data.
+ * @returns New rankings annotated with rank change status and value.
+ */
+const calculateRankChanges = (
+  newRankings: RankingPlayer[],
+  previousRankings: RankingPlayer[]
+): RankingPlayer[] => {
+  // Create a Map for efficient lookup of previous player ranks
+  const previousRankingsMap = new Map(
+    previousRankings.map((player) => [player.user_id, player])
+  );
 
-  if (error) {
-    throw new Error(error.message);
-  }
+  return newRankings.map((player) => {
+    const prevPlayer = previousRankingsMap.get(player.user_id);
 
-  // Add rank to each player
-  return data.map((player, index) => ({
-    ...player,
-    rank: index + 1
-  }));
-};
-
-export const useRankings = () => {
-  const queryClient = useQueryClient();
-  const saveTimeoutRef = useRef<number | null>(null);
-  const initialLoadCompletedRef = useRef(false);
-  const previousRankingsRef = useRef<RankingPlayer[]>([]);
-
-  // Load previous rankings from localStorage only once at initialization
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(RANKINGS_STORAGE_KEY);
-      if (stored) {
-        previousRankingsRef.current = JSON.parse(stored);
-      }
-    } catch (error) {
-      console.error('Error loading previous rankings:', error);
-      // Clear potentially corrupted data
-      localStorage.removeItem(RANKINGS_STORAGE_KEY);
-    }
-  }, []);
-
-  // Save current rankings to localStorage when component unmounts
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        window.clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const { data: currentRankings = [], ...queryResult } = useQuery({
-    queryKey: ['rankings'],
-    queryFn: fetchRankings,
-    staleTime: 60000, // 1 minute
-    refetchOnWindowFocus: false,
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-  });
-
-  // Calculate rank changes by comparing with previous rankings
-  const rankingsWithChanges = currentRankings.map(player => {
-    const prevPlayer = previousRankingsRef.current.find(p => p.user_id === player.user_id);
-    
     let rankChange: 'up' | 'down' | 'same' | 'new' = 'new';
     let rankChangeValue = 0;
-    
+
     if (prevPlayer) {
       if (player.rank && prevPlayer.rank) {
         if (player.rank < prevPlayer.rank) {
@@ -92,64 +51,112 @@ export const useRankings = () => {
         }
       }
     }
-    
+
     return {
       ...player,
       rankChange,
-      rankChangeValue
+      rankChangeValue,
     };
   });
+};
 
-  // Save rankings when component unmounts or when rankings change
-  useEffect(() => {
-    if (currentRankings.length > 0 && initialLoadCompletedRef.current) {
-      // Clear any existing timeout
-      if (saveTimeoutRef.current) {
-        window.clearTimeout(saveTimeoutRef.current);
+/**
+ * Fetches player profiles from Supabase and assigns a current rank.
+ * @returns A promise that resolves to an array of RankingPlayer objects with their current ranks.
+ */
+const fetchRankings = async (): Promise<RankingPlayer[]> => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('user_id, username, elo_rating, matches_played, matches_won, skill_level, profile_picture_url')
+    .order('elo_rating', { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  // Assign a rank to each player based on their ELO rating
+  return data.map((player, index) => ({
+    ...player,
+    rank: index + 1
+  }));
+};
+
+/**
+ * Custom React Hook to fetch, calculate rank changes, and persist player rankings.
+ * It uses TanStack Query for data fetching and caching, and localStorage for persistence.
+ */
+export const useRankings = () => {
+  const queryClient = useQueryClient();
+
+  const queryResult = useQuery({
+    queryKey: ['rankings'],
+    queryFn: fetchRankings,
+    staleTime: 60000, // Data is considered fresh for 1 minute
+    refetchOnWindowFocus: false, // Do not refetch automatically on window focus
+    retry: 3, // Retry failed queries up to 3 times
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff for retries
+
+    // onSuccess is called with the raw data returned by queryFn (fetchRankings)
+    // This is the perfect place to reliably persist the *latest* fetched data.
+    onSuccess: (data: RankingPlayer[]) => {
+      try {
+        localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(data));
+      } catch (error) {
+        console.error('Error saving current rankings to localStorage:', error);
       }
-      
-      // Save the current rankings to localStorage when navigating away
-      const handleBeforeUnload = () => {
-        localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(currentRankings));
-      };
-      
-      window.addEventListener('beforeunload', handleBeforeUnload);
-      
-      return () => {
-        window.removeEventListener('beforeunload', handleBeforeUnload);
-        localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(currentRankings));
-      };
-    } else if (currentRankings.length > 0 && !initialLoadCompletedRef.current) {
-      // Mark initial load as complete
-      initialLoadCompletedRef.current = true;
-    }
-  }, [currentRankings]);
+    },
 
-  // Set up real-time subscription to rankings changes
+    // select is used to transform the data *after* it's fetched and cached,
+    // but *before* it's returned by the useQuery hook.
+    // It receives the data that was just successfully fetched (and saved by onSuccess).
+    select: (newRankings: RankingPlayer[]): RankingPlayer[] => {
+      let previousRankings: RankingPlayer[] = [];
+      try {
+        const stored = localStorage.getItem(RANKINGS_STORAGE_KEY);
+        if (stored) {
+          previousRankings = JSON.parse(stored);
+        }
+      } catch (error) {
+        console.error('Error loading or parsing previous rankings from localStorage:', error);
+        // Clear corrupted data to prevent future errors
+        localStorage.removeItem(RANKINGS_STORAGE_KEY);
+      }
+
+      // Calculate rank changes using the dedicated helper function
+      return calculateRankChanges(newRankings, previousRankings);
+    },
+  });
+
+  // Set up real-time subscription to profiles table changes
+  // This will invalidate the 'rankings' query, triggering a refetch.
   useEffect(() => {
     const channel = supabase
       .channel('rankings-changes')
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: 'UPDATE', // Listen for updates to player ELO, matches played/won
           schema: 'public',
           table: 'profiles',
           columns: ['elo_rating', 'matches_played', 'matches_won']
         },
         () => {
+          // Invalidate the 'rankings' query to trigger a refetch
           queryClient.invalidateQueries({ queryKey: ['rankings'] });
         }
       )
       .subscribe();
 
+    // Cleanup function: unsubscribe from the channel when the component unmounts
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient]); // Dependency array includes queryClient to ensure it's up-to-date
 
+  // The 'data' property of queryResult already contains the transformed rankings
+  // due to the 'select' option.
   return {
     ...queryResult,
-    rankings: rankingsWithChanges
+    rankings: queryResult.data || [] // Ensure rankings is always an array
   };
 };
