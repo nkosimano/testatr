@@ -5,7 +5,8 @@ import {
   Loader2, 
   AlertTriangle,
   CheckCircle,
-  ArrowLeft
+  ArrowLeft,
+  RotateCcw
 } from 'lucide-react';
 import LoadingSpinner from '../LoadingSpinner';
 import { useMatchMutations } from '../../hooks/useMatchMutations';
@@ -73,7 +74,11 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
         }
       } else {
         const defaultScore = {
-          sets: [],
+          sets: [{
+            player1_games: 0,
+            player2_games: 0,
+            games: []
+          }],
           current_game: { player1: '0', player2: '0' },
           server_id: match.player1_id,
           is_tiebreak: false,
@@ -176,6 +181,25 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
     }
   };
 
+  const handleUndo = () => {
+    if (scoreHistory.length > 1) {
+      // Remove the current score and go back to the previous one
+      const newHistory = [...scoreHistory];
+      newHistory.pop(); // Remove current score
+      const previousScore = newHistory[newHistory.length - 1];
+      
+      // Update the match with the previous score
+      updateMatch.mutate({
+        id: match.id,
+        updates: {
+          score: previousScore
+        }
+      });
+      
+      setScoreHistory(newHistory);
+    }
+  };
+
   const getMatchWinner = (): string => {
     if (!score || !score.sets || score.sets.length === 0) {
       return match.player1_id; // Default to player1 if no score data
@@ -197,25 +221,6 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
     if (player2SetsWon >= 2) return match.player2_id;
 
     return ''; // No winner yet
-  };
-
-  const handleUndo = () => {
-    if (scoreHistory.length > 1) {
-      // Remove the current score and go back to the previous one
-      const newHistory = [...scoreHistory];
-      newHistory.pop(); // Remove current score
-      const previousScore = newHistory[newHistory.length - 1];
-      
-      // Update the match with the previous score
-      updateMatch.mutate({
-        id: match.id,
-        updates: {
-          score: previousScore
-        }
-      });
-      
-      setScoreHistory(newHistory);
-    }
   };
 
   const getPointTypeLabel = (type: PointType): string => {
@@ -264,7 +269,7 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
             Live Scoring: {match.player1?.username} vs {match.player2?.username}
           </div>
           <div className="umpire-scoring-set">
-            {score.is_tiebreak ? 'Tiebreak' : `Set ${score.sets.length + 1}`}
+            {score.is_tiebreak ? 'Tiebreak' : `Set ${score.sets.length}`}
           </div>
         </div>
 
@@ -450,6 +455,7 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
             disabled={isSubmitting || scoreHistory.length <= 1}
             className="btn btn-secondary flex-1"
           >
+            <RotateCcw className="h-5 w-5 mr-2" />
             Undo Last Point
           </button>
           
