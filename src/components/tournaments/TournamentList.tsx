@@ -5,6 +5,7 @@ import { useTournaments } from '../../hooks/useTournaments';
 import { useTournamentMutations } from '../../hooks/useTournamentMutations';
 import LoadingSpinner from '../LoadingSpinner';
 import TournamentCreateForm from '../TournamentCreateForm';
+import { useNavigate } from 'react-router-dom';
 
 export const TournamentList: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -14,6 +15,7 @@ export const TournamentList: React.FC = () => {
   const user = useAuthStore((state) => state.user);
   const { tournaments, isLoading, error } = useTournaments();
   const { registerForTournament } = useTournamentMutations();
+  const navigate = useNavigate();
 
   const handleRegister = (tournamentId: string) => {
     if (!user) return;
@@ -22,6 +24,10 @@ export const TournamentList: React.FC = () => {
 
   const handleCreateTournament = () => {
     setShowCreateForm(true);
+  };
+
+  const handleViewDetails = (tournamentId: string) => {
+    navigate(`/tournaments/${tournamentId}`);
   };
 
   const formatStatus = (status: string) => {
@@ -53,17 +59,24 @@ export const TournamentList: React.FC = () => {
 
   return (
     <div className="tournaments-container">
-      {/* Header */}
-      <div className="tournaments-header">
-        <h1 className="tournaments-title">Tournaments</h1>
-        <button onClick={handleCreateTournament} className="tournaments-create-btn">
+      {/* Header with Create Tournament button on the right */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-standard)' }}>Tournaments</h1>
+        <button 
+          onClick={handleCreateTournament} 
+          className="btn btn-primary flex items-center gap-2"
+          style={{ 
+            background: 'var(--gradient-primary)',
+            color: 'var(--text-inverse)'
+          }}
+        >
           <Plus size={16} />
           Create Tournament
         </button>
       </div>
 
       {/* Filters */}
-      <div className="tournaments-filters">
+      <div className="tournaments-filters mb-6">
         <div className="tournaments-search-wrapper">
           <Search size={18} className="tournaments-search-icon" />
           <input
@@ -72,6 +85,7 @@ export const TournamentList: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="tournaments-search-input"
+            style={{ color: 'var(--text-standard)', background: 'var(--input-bg)' }}
           />
         </div>
         <div className="tournaments-status-filter">
@@ -80,6 +94,7 @@ export const TournamentList: React.FC = () => {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="tournaments-status-select"
+            style={{ color: 'var(--text-standard)', background: 'var(--input-bg)' }}
           >
             <option value="all">All Statuses</option>
             <option value="registration_open">Registration Open</option>
@@ -142,7 +157,7 @@ export const TournamentList: React.FC = () => {
                 <div className="tournament-card-info">
                   <div className="tournament-card-info-item">
                     <Calendar size={14} />
-                    <span>{new Date(tournament.start_date).toLocaleDateString()}</span>
+                    <span>{new Date(tournament.startDate).toLocaleDateString()}</span>
                   </div>
                   <div className="tournament-card-info-item">
                     <MapPin size={14} />
@@ -150,7 +165,7 @@ export const TournamentList: React.FC = () => {
                   </div>
                   <div className="tournament-card-info-item">
                     <Users size={14} />
-                    <span>{tournament.participantCount}/{tournament.max_participants}</span>
+                    <span>{tournament.participantCount}/{tournament.maxParticipants}</span>
                   </div>
                 </div>
 
@@ -164,13 +179,16 @@ export const TournamentList: React.FC = () => {
 
                 {/* Action Buttons */}
                 <div className="tournament-card-actions">
-                  <button className="tournament-card-btn tournament-card-btn-secondary">
+                  <button 
+                    className="tournament-card-btn tournament-card-btn-secondary"
+                    onClick={() => handleViewDetails(tournament.id)}
+                  >
                     Details
                   </button>
 
                   {tournament.status === 'registration_open' &&
                     !tournament.isRegistered &&
-                    (tournament.participantCount ?? 0) < tournament.max_participants && (
+                    (tournament.participantCount ?? 0) < tournament.maxParticipants && (
                       <button
                         onClick={() => handleRegister(tournament.id)}
                         className="tournament-card-btn tournament-card-btn-primary"
