@@ -6,7 +6,7 @@ interface CalendarDate {
   isCurrentMonth: boolean;
   isToday: boolean;
   isSelected: boolean;
-  selectionType?: 'registration' | 'start' | 'end';
+  selectionType?: 'start' | 'end';
   isInRange?: boolean;
 }
 
@@ -28,11 +28,10 @@ const MultiSelectCalendar: React.FC<MultiSelectCalendarProps> = ({
   minDate = new Date()
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [activeSelection, setActiveSelection] = useState<'registration' | 'start' | 'end'>('registration');
-  const [showTimeSelector, setShowTimeSelector] = useState<{type: 'registration' | 'start' | 'end', date: Date} | null>(null);
+  const [activeSelection, setActiveSelection] = useState<'start' | 'end'>('start');
+  const [showTimeSelector, setShowTimeSelector] = useState<{type: 'start' | 'end', date: Date} | null>(null);
   
   // Local state to track temporary selections before saving
-  const [tempRegistrationDeadline, setTempRegistrationDeadline] = useState<Date | null>(registrationDeadline || null);
   const [tempStartDate, setTempStartDate] = useState<Date | null>(startDate || null);
   const [tempEndDate, setTempEndDate] = useState<Date | null>(endDate || null);
 
@@ -64,14 +63,11 @@ const MultiSelectCalendar: React.FC<MultiSelectCalendarProps> = ({
       const isToday = date.getTime() === today.getTime();
       
       let isSelected = false;
-      let selectionType: 'registration' | 'start' | 'end' | undefined;
+      let selectionType: 'start' | 'end' | undefined;
       let isInRange = false;
 
       // Check if date matches any selected dates (using temp state)
-      if (tempRegistrationDeadline && isSameDay(date, tempRegistrationDeadline)) {
-        isSelected = true;
-        selectionType = 'registration';
-      } else if (tempStartDate && isSameDay(date, tempStartDate)) {
+      if (tempStartDate && isSameDay(date, tempStartDate)) {
         isSelected = true;
         selectionType = 'start';
       } else if (tempEndDate && isSameDay(date, tempEndDate)) {
@@ -126,9 +122,7 @@ const MultiSelectCalendar: React.FC<MultiSelectCalendarProps> = ({
       finalDate.setHours(hours, minutes, 0, 0);
       
       // Update temporary state
-      if (showTimeSelector.type === 'registration') {
-        setTempRegistrationDeadline(finalDate);
-      } else if (showTimeSelector.type === 'start') {
+      if (showTimeSelector.type === 'start') {
         setTempStartDate(finalDate);
       } else if (showTimeSelector.type === 'end') {
         setTempEndDate(finalDate);
@@ -137,9 +131,7 @@ const MultiSelectCalendar: React.FC<MultiSelectCalendarProps> = ({
       setShowTimeSelector(null);
       
       // Auto-advance to next selection
-      if (showTimeSelector.type === 'registration') {
-        setActiveSelection('start');
-      } else if (showTimeSelector.type === 'start') {
+      if (showTimeSelector.type === 'start') {
         setActiveSelection('end');
       }
     }
@@ -147,9 +139,6 @@ const MultiSelectCalendar: React.FC<MultiSelectCalendarProps> = ({
 
   const handleSaveChanges = () => {
     // Apply all changes to the parent component
-    if (tempRegistrationDeadline) {
-      onDateChange('registration', tempRegistrationDeadline);
-    }
     if (tempStartDate) {
       onDateChange('start', tempStartDate);
     }
@@ -163,7 +152,6 @@ const MultiSelectCalendar: React.FC<MultiSelectCalendarProps> = ({
 
   const handleCancel = () => {
     // Reset temporary state to original values
-    setTempRegistrationDeadline(registrationDeadline || null);
     setTempStartDate(startDate || null);
     setTempEndDate(endDate || null);
     
@@ -181,10 +169,8 @@ const MultiSelectCalendar: React.FC<MultiSelectCalendarProps> = ({
     setCurrentMonth(newMonth);
   };
 
-  const getSelectionTypeColor = (type: 'registration' | 'start' | 'end') => {
+  const getSelectionTypeColor = (type: 'start' | 'end') => {
     switch (type) {
-      case 'registration':
-        return 'var(--warning-orange)';
       case 'start':
         return 'var(--quantum-cyan)';
       case 'end':
@@ -192,10 +178,8 @@ const MultiSelectCalendar: React.FC<MultiSelectCalendarProps> = ({
     }
   };
 
-  const getSelectionTypeLabel = (type: 'registration' | 'start' | 'end') => {
+  const getSelectionTypeLabel = (type: 'start' | 'end') => {
     switch (type) {
-      case 'registration':
-        return 'Registration Deadline';
       case 'start':
         return 'Tournament Start';
       case 'end':
@@ -206,9 +190,8 @@ const MultiSelectCalendar: React.FC<MultiSelectCalendarProps> = ({
   const calendarDates = generateCalendarDates();
 
   // Check if we have all required dates selected
-  const hasAllDates = tempRegistrationDeadline && tempStartDate && tempEndDate;
+  const hasAllDates = tempStartDate && tempEndDate;
   const hasChanges = 
-    (tempRegistrationDeadline?.getTime() !== registrationDeadline?.getTime()) ||
     (tempStartDate?.getTime() !== startDate?.getTime()) ||
     (tempEndDate?.getTime() !== endDate?.getTime());
 
@@ -225,13 +208,13 @@ const MultiSelectCalendar: React.FC<MultiSelectCalendarProps> = ({
             Tournament Schedule
           </h2>
           <p className="calendar-subtitle">
-            Select registration deadline, start date, and end date
+            Select start date and end date for your tournament
           </p>
         </div>
 
         {/* Selection Type Tabs */}
         <div className="calendar-selection-tabs">
-          {(['registration', 'start', 'end'] as const).map((type) => (
+          {(['start', 'end'] as const).map((type) => (
             <button
               key={type}
               onClick={() => setActiveSelection(type)}
@@ -242,17 +225,13 @@ const MultiSelectCalendar: React.FC<MultiSelectCalendarProps> = ({
             >
               <div className="calendar-tab-label">{getSelectionTypeLabel(type)}</div>
               <div className="calendar-tab-date">
-                {type === 'registration' && tempRegistrationDeadline && (
-                  <span>{tempRegistrationDeadline.toLocaleDateString()}</span>
-                )}
                 {type === 'start' && tempStartDate && (
                   <span>{tempStartDate.toLocaleDateString()}</span>
                 )}
                 {type === 'end' && tempEndDate && (
                   <span>{tempEndDate.toLocaleDateString()}</span>
                 )}
-                {((type === 'registration' && !tempRegistrationDeadline) ||
-                  (type === 'start' && !tempStartDate) ||
+                {((type === 'start' && !tempStartDate) ||
                   (type === 'end' && !tempEndDate)) && (
                   <span className="calendar-tab-placeholder">Select date</span>
                 )}
@@ -354,15 +333,6 @@ const MultiSelectCalendar: React.FC<MultiSelectCalendarProps> = ({
 
         {/* Summary */}
         <div className="calendar-summary">
-          <div className="calendar-summary-item">
-            <div className="calendar-summary-label">Registration closes:</div>
-            <div className="calendar-summary-value">
-              {tempRegistrationDeadline 
-                ? tempRegistrationDeadline.toLocaleString()
-                : 'Not selected'
-              }
-            </div>
-          </div>
           <div className="calendar-summary-item">
             <div className="calendar-summary-label">Tournament starts:</div>
             <div className="calendar-summary-value">

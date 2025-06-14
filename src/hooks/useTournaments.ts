@@ -35,10 +35,14 @@ const fetchTournamentsWithDetails = async (userId: string | undefined) => {
         isRegistered = !!registration;
       }
 
+      // Check if tournament is full
+      const isFull = count !== null && count >= tournament.max_participants;
+
       return {
         ...tournament,
         participantCount: count || 0,
         isRegistered,
+        isFull
       };
     })
   );
@@ -47,15 +51,15 @@ const fetchTournamentsWithDetails = async (userId: string | undefined) => {
 };
 
 const fetchTournamentParticipants = async (tournamentId: string) => {
-    const { data, error } = await supabase
-      .from('tournament_participants')
-      .select('*, player:profiles!tournament_participants_player_id_fkey(username, elo_rating)')
-      .eq('tournament_id', tournamentId)
-      .order('seed', { ascending: true });
-  
-    if (error) throw new Error(error.message);
-    return data;
-  };
+  const { data, error } = await supabase
+    .from('tournament_participants')
+    .select('*, player:profiles!tournament_participants_player_id_fkey(username, elo_rating)')
+    .eq('tournament_id', tournamentId)
+    .order('seed', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return data;
+};
 
 export const useTournaments = (tournamentId?: string) => {
   const user = useAuthStore((state) => state.user);
@@ -80,6 +84,9 @@ export const useTournaments = (tournamentId?: string) => {
         { event: '*', schema: 'public', table: 'tournaments' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['tournaments'] });
+          if (tournamentId) {
+            queryClient.invalidateQueries({ queryKey: ['tournamentParticipants', tournamentId] });
+          }
         }
       )
       .on(

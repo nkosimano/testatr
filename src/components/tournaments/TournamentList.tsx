@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Trophy, Calendar, MapPin, Users, Plus, Search, Filter } from 'lucide-react';
+import { Trophy, Calendar, MapPin, Users, Plus, Search, Filter, AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useTournaments } from '../../hooks/useTournaments';
 import { useTournamentMutations } from '../../hooks/useTournamentMutations';
@@ -47,14 +47,26 @@ export const TournamentList: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner size="large" />
+      <div className="tournaments-container">
+        <LoadingSpinner size="large" text="Loading tournaments..." />
       </div>
     );
   }
 
   if (error) {
-    return <div className="tournaments-container">Error loading tournaments.</div>;
+    return (
+      <div className="tournaments-container">
+        <div className="text-center py-12">
+          <AlertTriangle size={48} className="mx-auto mb-4" style={{ color: 'var(--error-pink)' }} />
+          <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text-standard)' }}>
+            Error Loading Tournaments
+          </h3>
+          <p className="mb-4" style={{ color: 'var(--text-subtle)' }}>
+            {error instanceof Error ? error.message : 'An unknown error occurred'}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -93,6 +105,7 @@ export const TournamentList: React.FC = () => {
               >
                 <option value="all">All Statuses</option>
                 <option value="registration_open">Registration Open</option>
+                <option value="registration_closed">Registration Closed</option>
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
               </select>
@@ -134,17 +147,22 @@ export const TournamentList: React.FC = () => {
                           ? 'rgba(0, 255, 170, 0.2)'
                           : tournament.status === 'in_progress'
                           ? 'rgba(0, 212, 255, 0.2)'
-                          : 'rgba(255, 149, 0, 0.2)'
+                          : tournament.status === 'registration_closed'
+                          ? 'rgba(255, 149, 0, 0.2)'
+                          : 'rgba(100, 116, 139, 0.2)'
                       }`,
                       color:
                         tournament.status === 'registration_open'
                           ? 'var(--success-green)'
                           : tournament.status === 'in_progress'
                           ? 'var(--quantum-cyan)'
-                          : 'var(--warning-orange)',
+                          : tournament.status === 'registration_closed'
+                          ? 'var(--warning-orange)'
+                          : 'var(--text-muted)',
                     }}
                   >
                     {formatStatus(tournament.status)}
+                    {tournament.isFull && tournament.status === 'registration_open' && ' (Full)'}
                   </div>
                 </div>
               </div>
@@ -184,7 +202,7 @@ export const TournamentList: React.FC = () => {
 
                 {tournament.status === 'registration_open' &&
                   !tournament.isRegistered &&
-                  (tournament.participantCount ?? 0) < tournament.max_participants && (
+                  !tournament.isFull && (
                     <button
                       onClick={() => handleRegister(tournament.id)}
                       className="tournament-card-btn tournament-card-btn-primary"

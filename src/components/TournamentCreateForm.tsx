@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, MapPin, Users, Trophy, User, Award, RotateCcw } from 'lucide-react';
+import { X, Calendar, MapPin, Users, Trophy, User, Award, RotateCcw, AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
 import MultiSelectCalendar from './MultiSelectCalendar';
@@ -26,6 +26,7 @@ const TournamentCreateForm: React.FC<TournamentCreateFormProps> = ({ onClose, on
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAutoGenerateInfo, setShowAutoGenerateInfo] = useState(false);
 
   // Get available umpires (all users for now)
   const [availableUmpires, setAvailableUmpires] = useState<any[]>([]);
@@ -83,6 +84,12 @@ const TournamentCreateForm: React.FC<TournamentCreateFormProps> = ({ onClose, on
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+    
+    // Show auto-generate info when changing max participants
+    if (field === 'maxParticipants') {
+      setShowAutoGenerateInfo(true);
+      setTimeout(() => setShowAutoGenerateInfo(false), 5000);
+    }
   };
 
   const handleDateChange = (type: 'registration' | 'start' | 'end', date: Date) => {
@@ -115,10 +122,6 @@ const TournamentCreateForm: React.FC<TournamentCreateFormProps> = ({ onClose, on
       newErrors.description = 'Description is required';
     }
 
-    if (!formData.registrationDeadline) {
-      newErrors.registrationDeadline = 'Registration deadline is required';
-    }
-
     if (!formData.startDate) {
       newErrors.startDate = 'Start date is required';
     }
@@ -131,16 +134,8 @@ const TournamentCreateForm: React.FC<TournamentCreateFormProps> = ({ onClose, on
       newErrors.endDate = 'End date must be after start date';
     }
 
-    if (formData.registrationDeadline && formData.startDate && formData.registrationDeadline >= formData.startDate) {
-      newErrors.registrationDeadline = 'Registration deadline must be before start date';
-    }
-
     if (!formData.location.trim()) {
       newErrors.location = 'Location is required';
-    }
-
-    if (!formData.umpireId) {
-      newErrors.umpireId = 'Umpire selection is required';
     }
 
     if (formData.maxParticipants < 3) {
@@ -186,7 +181,8 @@ const TournamentCreateForm: React.FC<TournamentCreateFormProps> = ({ onClose, on
           format: formData.format,
           max_participants: formData.maxParticipants,
           location: formData.location,
-          status: 'registration_open'
+          status: 'registration_open',
+          brackets_generated: false
         })
         .select()
         .single();
@@ -303,12 +299,6 @@ const TournamentCreateForm: React.FC<TournamentCreateFormProps> = ({ onClose, on
               
               <div className="tournament-schedule-display">
                 <div className="schedule-item">
-                  <div className="schedule-label">Registration Deadline:</div>
-                  <div className="schedule-value">
-                    {formatDateTime(formData.registrationDeadline)}
-                  </div>
-                </div>
-                <div className="schedule-item">
                   <div className="schedule-label">Tournament Start:</div>
                   <div className="schedule-value">
                     {formatDateTime(formData.startDate)}
@@ -328,15 +318,14 @@ const TournamentCreateForm: React.FC<TournamentCreateFormProps> = ({ onClose, on
                 className="btn btn-secondary w-full mt-3"
               >
                 <Calendar size={16} />
-                {formData.registrationDeadline || formData.startDate || formData.endDate 
+                {formData.startDate || formData.endDate 
                   ? 'Modify Schedule' 
                   : 'Set Tournament Schedule'
                 }
               </button>
 
-              {(errors.registrationDeadline || errors.startDate || errors.endDate) && (
+              {(errors.startDate || errors.endDate) && (
                 <div className="mt-2">
-                  {errors.registrationDeadline && <p className="text-error-pink text-sm">{errors.registrationDeadline}</p>}
                   {errors.startDate && <p className="text-error-pink text-sm">{errors.startDate}</p>}
                   {errors.endDate && <p className="text-error-pink text-sm">{errors.endDate}</p>}
                 </div>
@@ -424,6 +413,17 @@ const TournamentCreateForm: React.FC<TournamentCreateFormProps> = ({ onClose, on
                 ))}
               </select>
               {errors.maxParticipants && <p className="text-error-pink text-sm mt-1">{errors.maxParticipants}</p>}
+              
+              {showAutoGenerateInfo && (
+                <div className="mt-2 p-3 rounded-md bg-blue-50 dark:bg-blue-900/20 text-sm">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle size={16} className="text-quantum-cyan flex-shrink-0 mt-0.5" />
+                    <p className="text-quantum-cyan">
+                      The tournament bracket will be automatically generated when the maximum number of participants is reached.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Location */}
@@ -448,16 +448,15 @@ const TournamentCreateForm: React.FC<TournamentCreateFormProps> = ({ onClose, on
             <div className="form-group">
               <label htmlFor="umpireId" className="form-label">
                 <User size={16} className="inline mr-2" />
-                Tournament Umpire
+                Tournament Umpire (Optional)
               </label>
               <select
                 id="umpireId"
                 value={formData.umpireId}
                 onChange={(e) => handleInputChange('umpireId', e.target.value)}
                 className="form-select"
-                required
               >
-                <option value="">Select an umpire</option>
+                <option value="">Select an umpire (optional)</option>
                 {availableUmpires.map((umpire) => (
                   <option key={umpire.user_id} value={umpire.user_id}>
                     {umpire.username} (Rating: {umpire.elo_rating})
@@ -499,10 +498,13 @@ const TournamentCreateForm: React.FC<TournamentCreateFormProps> = ({ onClose, on
       {/* Multi-Select Calendar Modal */}
       {showCalendar && (
         <MultiSelectCalendar
-          registrationDeadline={formData.registrationDeadline}
           startDate={formData.startDate}
           endDate={formData.endDate}
-          onDateChange={handleDateChange}
+          onDateChange={(type, date) => {
+            if (type === 'start' || type === 'end') {
+              handleDateChange(type, date);
+            }
+          }}
           onClose={() => setShowCalendar(false)}
         />
       )}
