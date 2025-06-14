@@ -16,7 +16,6 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { Tournament, TournamentParticipant, TournamentMatch } from '../types';
-import { UserService } from '../services/UserService';
 import { useAuth } from '../contexts/AuthContext';
 
 interface TournamentDetailsPageProps {
@@ -37,8 +36,9 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'participants' | 'bracket' | 'standings'>('overview');
 
-  const organizer = UserService.getPlayerById(tournament.organizerId);
-  const umpire = UserService.getPlayerById(tournament.umpireId);
+  // Use tournament organizer data directly or fallback to placeholder
+  const organizer = tournament.organizer || { name: 'Unknown Organizer' };
+  const umpire = { name: 'TBD' }; // Placeholder since umpire data is not available
   const isRegistered = tournament.isRegistered || false;
   const isOrganizer = tournament.organizerId === user?.id;
   
