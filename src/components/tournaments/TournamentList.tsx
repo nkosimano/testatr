@@ -47,7 +47,7 @@ export const TournamentList: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="tournaments-loading">
+      <div className="flex items-center justify-center min-h-[400px]">
         <LoadingSpinner size="large" />
       </div>
     );
@@ -59,150 +59,145 @@ export const TournamentList: React.FC = () => {
 
   return (
     <div className="tournaments-container">
-      {/* Header with Create Tournament button on the right */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-standard)' }}>Tournaments</h1>
-        <button 
-          onClick={handleCreateTournament} 
-          className="btn btn-primary flex items-center gap-2"
-          style={{ 
-            background: 'var(--gradient-primary)',
-            color: 'var(--text-inverse)'
-          }}
-        >
+      {/* Header */}
+      <div className="tournaments-header">
+        <h1 className="tournaments-title">Tournaments</h1>
+        <button onClick={handleCreateTournament} className="tournaments-create-btn">
           <Plus size={16} />
           Create Tournament
         </button>
       </div>
 
       {/* Filters */}
-      <div className="tournaments-filters mb-6">
-        <div className="tournaments-search-wrapper">
-          <Search size={18} className="tournaments-search-icon" />
-          <input
-            type="text"
-            placeholder="Search tournaments..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="tournaments-search-input"
-            style={{ color: 'var(--text-standard)', background: 'var(--input-bg)' }}
-          />
-        </div>
-        <div className="tournaments-status-filter">
-          <Filter size={16} />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="tournaments-status-select"
-            style={{ color: 'var(--text-standard)', background: 'var(--input-bg)' }}
-          >
-            <option value="all">All Statuses</option>
-            <option value="registration_open">Registration Open</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-          </select>
+      <div className="tournaments-filters">
+        <div className="tournaments-filters-content">
+          <div className="tournaments-search">
+            <div className="tournaments-search-container">
+              <Search size={18} className="tournaments-search-icon" />
+              <input
+                type="text"
+                placeholder="Search tournaments..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="tournaments-search-input"
+              />
+            </div>
+          </div>
+          <div className="tournaments-filter-controls">
+            <div className="relative">
+              <Filter size={16} className="tournaments-filter-icon" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="form-select tournaments-filter-select"
+              >
+                <option value="all">All Statuses</option>
+                <option value="registration_open">Registration Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Tournament Grid */}
-      <div className="tournaments-grid-container">
-        {filteredTournaments.length === 0 ? (
-          <div className="tournaments-empty-state">
-            <Trophy size={48} />
-            <h3 className="tournaments-empty-title">No Tournaments Found</h3>
-            <p className="tournaments-empty-text">
-              {searchQuery || statusFilter !== 'all'
-                ? 'Try adjusting your search or filter criteria.'
-                : 'Be the first to create a tournament and bring players together!'}
-            </p>
-            {!searchQuery && statusFilter === 'all' && (
-              <button onClick={handleCreateTournament} className="tournaments-empty-btn">
-                <Plus size={16} />
-                Create First Tournament
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="tournaments-grid">
-            {filteredTournaments.map((tournament) => (
-              <div key={tournament.id} className="tournament-card-minimal">
-                {/* Header with Title and Status */}
-                <div className="tournament-card-header">
-                  <div className="tournament-card-title-section">
-                    <h3 className="tournament-card-title">{tournament.name}</h3>
-                    <div
-                      className="tournament-card-status"
-                      style={{
-                        backgroundColor: `${
-                          tournament.status === 'registration_open'
-                            ? 'rgba(0, 255, 170, 0.2)'
-                            : tournament.status === 'in_progress'
-                            ? 'rgba(0, 212, 255, 0.2)'
-                            : 'rgba(255, 149, 0, 0.2)'
-                        }`,
-                        color:
-                          tournament.status === 'registration_open'
-                            ? 'var(--success-green)'
-                            : tournament.status === 'in_progress'
-                            ? 'var(--quantum-cyan)'
-                            : 'var(--warning-orange)',
-                      }}
-                    >
-                      {formatStatus(tournament.status)}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Essential Info */}
-                <div className="tournament-card-info">
-                  <div className="tournament-card-info-item">
-                    <Calendar size={14} />
-                    <span>{new Date(tournament.startDate).toLocaleDateString()}</span>
-                  </div>
-                  <div className="tournament-card-info-item">
-                    <MapPin size={14} />
-                    <span>{tournament.location.split(',')[0]}</span>
-                  </div>
-                  <div className="tournament-card-info-item">
-                    <Users size={14} />
-                    <span>{tournament.participantCount}/{tournament.maxParticipants}</span>
-                  </div>
-                </div>
-
-                {/* Registration Status Indicator */}
-                {tournament.isRegistered && (
-                  <div className="tournament-card-registered">
-                    <Trophy size={14} />
-                    <span>Registered</span>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="tournament-card-actions">
-                  <button 
-                    className="tournament-card-btn tournament-card-btn-secondary"
-                    onClick={() => handleViewDetails(tournament.id)}
+      {filteredTournaments.length === 0 ? (
+        <div className="tournaments-empty">
+          <Trophy size={48} className="tournaments-empty-icon" />
+          <h3 className="tournaments-empty-title">No Tournaments Found</h3>
+          <p className="tournaments-empty-description">
+            {searchQuery || statusFilter !== 'all'
+              ? 'Try adjusting your search or filter criteria.'
+              : 'Be the first to create a tournament and bring players together!'}
+          </p>
+          {!searchQuery && statusFilter === 'all' && (
+            <button onClick={handleCreateTournament} className="tournaments-empty-btn">
+              <Plus size={16} />
+              Create First Tournament
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="tournaments-grid">
+          {filteredTournaments.map((tournament) => (
+            <div key={tournament.id} className="tournament-card-minimal">
+              {/* Header with Title and Status */}
+              <div className="tournament-card-header">
+                <div className="tournament-card-title-section">
+                  <h3 className="tournament-card-title">{tournament.name}</h3>
+                  <div
+                    className="tournament-card-status"
+                    style={{
+                      backgroundColor: `${
+                        tournament.status === 'registration_open'
+                          ? 'rgba(0, 255, 170, 0.2)'
+                          : tournament.status === 'in_progress'
+                          ? 'rgba(0, 212, 255, 0.2)'
+                          : 'rgba(255, 149, 0, 0.2)'
+                      }`,
+                      color:
+                        tournament.status === 'registration_open'
+                          ? 'var(--success-green)'
+                          : tournament.status === 'in_progress'
+                          ? 'var(--quantum-cyan)'
+                          : 'var(--warning-orange)',
+                    }}
                   >
-                    Details
-                  </button>
-
-                  {tournament.status === 'registration_open' &&
-                    !tournament.isRegistered &&
-                    (tournament.participantCount ?? 0) < tournament.maxParticipants && (
-                      <button
-                        onClick={() => handleRegister(tournament.id)}
-                        className="tournament-card-btn tournament-card-btn-primary"
-                        disabled={registerForTournament.isPending}
-                      >
-                        {registerForTournament.isPending ? 'Registering...' : 'Register'}
-                      </button>
-                    )}
+                    {formatStatus(tournament.status)}
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+
+              {/* Essential Info */}
+              <div className="tournament-card-info">
+                <div className="tournament-card-info-item">
+                  <Calendar size={14} />
+                  <span>{new Date(tournament.start_date).toLocaleDateString()}</span>
+                </div>
+                <div className="tournament-card-info-item">
+                  <MapPin size={14} />
+                  <span>{tournament.location.split(',')[0]}</span>
+                </div>
+                <div className="tournament-card-info-item">
+                  <Users size={14} />
+                  <span>{tournament.participantCount}/{tournament.max_participants}</span>
+                </div>
+              </div>
+
+              {/* Registration Status Indicator */}
+              {tournament.isRegistered && (
+                <div className="tournament-card-registered">
+                  <Trophy size={14} />
+                  <span>Registered</span>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="tournament-card-actions">
+                <button 
+                  onClick={() => handleViewDetails(tournament.id)}
+                  className="tournament-card-btn tournament-card-btn-secondary"
+                >
+                  Details
+                </button>
+
+                {tournament.status === 'registration_open' &&
+                  !tournament.isRegistered &&
+                  (tournament.participantCount ?? 0) < tournament.max_participants && (
+                    <button
+                      onClick={() => handleRegister(tournament.id)}
+                      className="tournament-card-btn tournament-card-btn-primary"
+                      disabled={registerForTournament.isPending}
+                    >
+                      {registerForTournament.isPending ? 'Registering...' : 'Register'}
+                    </button>
+                  )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Tournament Creation Form */}
       {showCreateForm && (

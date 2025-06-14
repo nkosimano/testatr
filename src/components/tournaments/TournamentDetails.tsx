@@ -156,17 +156,17 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'registration_open':
-        return 'bg-green-100 text-green-800'
+        return 'text-success-green bg-success-green bg-opacity-10'
       case 'registration_closed':
-        return 'bg-yellow-100 text-yellow-800'
+        return 'text-warning-orange bg-warning-orange bg-opacity-10'
       case 'in_progress':
-        return 'bg-blue-100 text-blue-800'
+        return 'text-quantum-cyan bg-quantum-cyan bg-opacity-10'
       case 'completed':
-        return 'bg-gray-100 text-gray-800'
+        return 'text-text-muted bg-text-muted bg-opacity-10'
       case 'cancelled':
-        return 'bg-red-100 text-red-800'
+        return 'text-error-pink bg-error-pink bg-opacity-10'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'text-text-muted bg-text-muted bg-opacity-10'
     }
   }
 
@@ -189,7 +189,7 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
   if (!tournament) {
     return (
       <div className="text-center py-12">
-        <h3 className="text-lg font-medium text-gray-900">Tournament not found</h3>
+        <h3 className="text-lg font-medium text-text-standard">Tournament not found</h3>
         <button
           onClick={onBack}
           className="mt-4 btn btn-primary"
@@ -201,390 +201,358 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
   }
 
   return (
-    <div className="bg-glass-bg backdrop-filter-blur border border-glass-border rounded-lg shadow-md">
-      {/* Header */}
-      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center mb-4">
+    <div className="tournament-details-page">
+      <div className="tournament-details-container">
+        {/* Header */}
+        <div className="tournament-details-header">
           <button
             onClick={onBack}
-            className="mr-4 p-2 rounded-full hover:bg-hover-bg"
-            style={{ color: 'var(--text-standard)' }}
+            className="tournament-details-back-btn"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft size={20} />
           </button>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-standard)' }}>{tournament.name}</h1>
-        </div>
-        
-        <div className="flex flex-wrap items-center gap-4 mb-4">
-          <span className={`px-3 py-1 text-sm font-medium rounded-full`} 
-            style={{ 
-              backgroundColor: tournament.status === 'registration_open' 
-                ? 'rgba(0, 255, 170, 0.2)' 
-                : tournament.status === 'in_progress'
-                ? 'rgba(0, 212, 255, 0.2)'
-                : 'rgba(255, 149, 0, 0.2)',
-              color: tournament.status === 'registration_open'
-                ? 'var(--success-green)'
-                : tournament.status === 'in_progress'
-                ? 'var(--quantum-cyan)'
-                : 'var(--warning-orange)'
-            }}>
-            {formatStatus(tournament.status)}
-          </span>
-          <div className="flex items-center text-sm" style={{ color: 'var(--text-subtle)' }}>
-            <Calendar className="h-4 w-4 mr-2" />
-            {new Date(tournament.start_date).toLocaleDateString()} - {new Date(tournament.end_date).toLocaleDateString()}
-          </div>
-          <div className="flex items-center text-sm" style={{ color: 'var(--text-subtle)' }}>
-            <MapPin className="h-4 w-4 mr-2" />
-            {tournament.location}
-          </div>
-          <div className="flex items-center text-sm" style={{ color: 'var(--text-subtle)' }}>
-            <Users className="h-4 w-4 mr-2" />
-            {participants.length}/{tournament.max_participants} participants
-          </div>
-          <div className="flex items-center text-sm" style={{ color: 'var(--text-subtle)' }}>
-            <Trophy className="h-4 w-4 mr-2" />
-            <span className="capitalize">{tournament.format.replace('_', ' ')} format</span>
+          
+          <div className="tournament-details-title-section">
+            <h1 className="tournament-details-title">{tournament.name}</h1>
+            <div 
+              className={`tournament-details-status ${getStatusColor(tournament.status)}`}
+            >
+              {formatStatus(tournament.status)}
+            </div>
           </div>
         </div>
         
-        <p style={{ color: 'var(--text-subtle)' }}>{tournament.description}</p>
-      </div>
-
-      {/* Tabs */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="flex -mb-px">
+        {/* Navigation Tabs */}
+        <div className="tournament-details-tabs">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`py-4 px-6 text-sm font-medium ${
-              activeTab === 'overview'
-                ? 'border-b-2 border-quantum-cyan text-quantum-cyan'
-                : 'text-text-subtle hover:text-text-standard hover:border-border-subtle'
-            }`}
-            style={{ color: activeTab === 'overview' ? 'var(--quantum-cyan)' : 'var(--text-subtle)' }}
+            className={`tournament-details-tab ${activeTab === 'overview' ? 'active' : ''}`}
           >
+            <Trophy size={16} />
             Overview
           </button>
           <button
             onClick={() => setActiveTab('participants')}
-            className={`py-4 px-6 text-sm font-medium ${
-              activeTab === 'participants'
-                ? 'border-b-2 border-quantum-cyan text-quantum-cyan'
-                : 'text-text-subtle hover:text-text-standard hover:border-border-subtle'
-            }`}
-            style={{ color: activeTab === 'participants' ? 'var(--quantum-cyan)' : 'var(--text-subtle)' }}
+            className={`tournament-details-tab ${activeTab === 'participants' ? 'active' : ''}`}
           >
-            Participants ({participants.length})
+            <Users size={16} />
+            Players ({participants.length})
           </button>
           <button
             onClick={() => setActiveTab('matches')}
-            className={`py-4 px-6 text-sm font-medium ${
-              activeTab === 'matches'
-                ? 'border-b-2 border-quantum-cyan text-quantum-cyan'
-                : 'text-text-subtle hover:text-text-standard hover:border-border-subtle'
-            }`}
-            style={{ color: activeTab === 'matches' ? 'var(--quantum-cyan)' : 'var(--text-subtle)' }}
+            className={`tournament-details-tab ${activeTab === 'matches' ? 'active' : ''}`}
           >
+            <Clock size={16} />
             Matches ({matches.length})
           </button>
-        </nav>
-      </div>
+        </div>
 
-      {/* Tab Content */}
-      <div className="p-6">
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            {/* Tournament Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-bg-elevated rounded-lg p-6">
-                <h3 className="text-lg font-medium mb-4" style={{ color: 'var(--text-standard)' }}>Tournament Details</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span style={{ color: 'var(--text-subtle)' }}>Format:</span>
-                    <span className="font-medium capitalize" style={{ color: 'var(--text-standard)' }}>{tournament.format.replace('_', ' ')}</span>
+        {/* Tab Content */}
+        <div className="tournament-details-content">
+          {activeTab === 'overview' && (
+            <div className="tournament-details-overview">
+              {/* Tournament Info */}
+              <div className="tournament-info-grid">
+                <div className="tournament-info-card">
+                  <div className="tournament-info-header">
+                    <Calendar size={20} />
+                    <span>Schedule</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: 'var(--text-subtle)' }}>Organizer:</span>
-                    <span className="font-medium" style={{ color: 'var(--text-standard)' }}>{organizer?.username}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: 'var(--text-subtle)' }}>Registration:</span>
-                    <span className="font-medium" style={{ color: 'var(--text-standard)' }}>
-                      {tournament.status === 'registration_open' ? 'Open' : 'Closed'}
-                    </span>
-                  </div>
-                  {tournament.entry_fee && (
-                    <div className="flex justify-between">
-                      <span style={{ color: 'var(--text-subtle)' }}>Entry Fee:</span>
-                      <span className="font-medium" style={{ color: 'var(--text-standard)' }}>${tournament.entry_fee}</span>
+                  <div className="tournament-info-content">
+                    <div className="tournament-info-item">
+                      <span className="tournament-info-label">Registration Deadline:</span>
+                      <span className="tournament-info-value">
+                        {new Date(tournament.start_date).toLocaleDateString()} at{' '}
+                        {new Date(tournament.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
-                  )}
-                  {tournament.prize_pool && (
-                    <div className="flex justify-between">
-                      <span style={{ color: 'var(--text-subtle)' }}>Prize Pool:</span>
-                      <span className="font-medium" style={{ color: 'var(--text-standard)' }}>${tournament.prize_pool}</span>
+                    <div className="tournament-info-item">
+                      <span className="tournament-info-label">Tournament Start:</span>
+                      <span className="tournament-info-value">
+                        {new Date(tournament.start_date).toLocaleDateString()} at{' '}
+                        {new Date(tournament.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
-                  )}
+                    <div className="tournament-info-item">
+                      <span className="tournament-info-label">Tournament End:</span>
+                      <span className="tournament-info-value">
+                        {new Date(tournament.end_date).toLocaleDateString()} at{' '}
+                        {new Date(tournament.end_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="tournament-info-card">
+                  <div className="tournament-info-header">
+                    <Trophy size={20} />
+                    <span>Format & Rules</span>
+                  </div>
+                  <div className="tournament-info-content">
+                    <div className="tournament-info-item">
+                      <span className="tournament-info-label">Format:</span>
+                      <span className="tournament-info-value capitalize">{tournament.format.replace('_', ' ')}</span>
+                    </div>
+                    <div className="tournament-info-item">
+                      <span className="tournament-info-label">Max Participants:</span>
+                      <span className="tournament-info-value">{tournament.max_participants} players</span>
+                    </div>
+                    <div className="tournament-info-item">
+                      <span className="tournament-info-label">Current Registration:</span>
+                      <span className="tournament-info-value">
+                        {participants.length}/{tournament.max_participants} players
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="tournament-info-card">
+                  <div className="tournament-info-header">
+                    <MapPin size={20} />
+                    <span>Location & Officials</span>
+                  </div>
+                  <div className="tournament-info-content">
+                    <div className="tournament-info-item">
+                      <span className="tournament-info-label">Venue:</span>
+                      <span className="tournament-info-value">{tournament.location}</span>
+                    </div>
+                    <div className="tournament-info-item">
+                      <span className="tournament-info-label">Organizer:</span>
+                      <span className="tournament-info-value">{organizer?.username || 'Unknown'}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="bg-bg-elevated rounded-lg p-6">
-                <h3 className="text-lg font-medium mb-4" style={{ color: 'var(--text-standard)' }}>Registration Status</h3>
-                <div className="mb-4">
-                  <div className="flex justify-between mb-2">
-                    <span style={{ color: 'var(--text-subtle)' }}>Participants:</span>
-                    <span className="font-medium" style={{ color: 'var(--text-standard)' }}>
-                      {participants.length}/{tournament.max_participants}
-                    </span>
-                  </div>
-                  <div className="w-full bg-bg-surface-gray rounded-full h-2.5">
-                    <div 
-                      className="h-2.5 rounded-full" 
-                      style={{ 
-                        width: `${(participants.length / tournament.max_participants) * 100}%`,
-                        backgroundColor: 'var(--quantum-cyan)'
-                      }}
-                    ></div>
-                  </div>
+              {/* Registration Progress */}
+              <div className="tournament-registration-progress">
+                <div className="tournament-progress-header">
+                  <h3>Registration Progress</h3>
+                  <span className="tournament-progress-count">
+                    {participants.length}/{tournament.max_participants} players
+                  </span>
                 </div>
-                
-                {isRegistered ? (
-                  <div className="text-center">
-                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-3 mb-4">
-                      <p className="font-medium" style={{ color: 'var(--success-green)' }}>You are registered for this tournament</p>
-                    </div>
-                    {tournament.status === 'registration_open' && (
-                      <button
-                        onClick={handleUnregister}
-                        className="btn btn-secondary"
-                      >
-                        Withdraw from Tournament
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    {tournament.status === 'registration_open' && participants.length < tournament.max_participants ? (
-                      <button
-                        onClick={handleRegister}
-                        className="btn btn-primary"
-                      >
-                        <Target className="h-5 w-5 mr-2" />
-                        Register for Tournament
-                      </button>
-                    ) : (
-                      <div className="bg-bg-elevated border border-border-subtle rounded-md p-3">
-                        <p style={{ color: 'var(--text-subtle)' }}>
-                          {participants.length >= tournament.max_participants
-                            ? 'Tournament is full'
-                            : 'Registration is closed'}
-                        </p>
+                <div className="tournament-progress-bar">
+                  <div 
+                    className="tournament-progress-fill"
+                    style={{ 
+                      width: `${(participants.length / tournament.max_participants) * 100}%`,
+                      backgroundColor: participants.length === tournament.max_participants ? 'var(--success-green)' : 'var(--quantum-cyan)'
+                    }}
+                  />
+                </div>
+                <div className="tournament-progress-percentage">
+                  {Math.round((participants.length / tournament.max_participants) * 100)}% Full
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="tournament-description-card">
+                <h3>About This Tournament</h3>
+                <p>{tournament.description}</p>
+              </div>
+
+              {/* Format Explanation */}
+              <div className="tournament-format-card">
+                <h3>
+                  <Trophy size={20} className="inline-icon mr-2" />
+                  Single Elimination Format
+                </h3>
+                <div className="format-explanation">
+                  <p>
+                    In this single elimination tournament, players compete in a knockout format. Lose once and you're eliminated from the competition.
+                  </p>
+                  <ul className="format-features">
+                    <li>Players are seeded based on their ratings</li>
+                    <li>Each match has one winner who advances to the next round</li>
+                    <li>The tournament champion is the last player standing</li>
+                    <li>Fast-paced format with clear progression</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Registration Status */}
+              {isRegistered && (
+                <div className="tournament-registration-status registered">
+                  <div className="tournament-status-content">
+                    <div className="flex items-center gap-2">
+                      <div className="text-success-green">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
                       </div>
-                    )}
+                      <div>
+                        <div className="tournament-status-title">You're Registered!</div>
+                        <div className="tournament-status-subtitle">
+                          You're all set for this tournament. Check back for bracket updates.
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
+              )}
 
-            {/* Schedule */}
-            <div className="bg-bg-elevated rounded-lg p-6">
-              <h3 className="text-lg font-medium mb-4" style={{ color: 'var(--text-standard)' }}>Tournament Schedule</h3>
-              <div className="space-y-4">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center" 
-                    style={{ backgroundColor: 'rgba(0, 212, 255, 0.1)', color: 'var(--quantum-cyan)' }}>
-                    <Calendar className="h-5 w-5" />
+              {!isRegistered && tournament.status === 'registration_open' && (
+                <div className="tournament-registration-status can-register">
+                  <div className="tournament-status-content">
+                    <div className="flex items-center gap-2">
+                      <div className="text-quantum-cyan">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <line x1="12" y1="8" x2="12" y2="16"></line>
+                          <line x1="8" y1="12" x2="16" y2="12"></line>
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="tournament-status-title">
+                          Registration Open
+                        </div>
+                        <div className="tournament-status-subtitle">
+                          Join this tournament and compete against other players!
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="ml-4">
-                    <h4 className="text-base font-medium" style={{ color: 'var(--text-standard)' }}>Registration Period</h4>
-                    <p style={{ color: 'var(--text-subtle)' }}>
-                      Until {new Date(tournament.start_date).toLocaleDateString()}
-                    </p>
-                  </div>
+                  <button onClick={handleRegister} className="btn btn-primary btn-glare">
+                    <Target size={16} className="mr-2" />
+                    Register Now
+                  </button>
                 </div>
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center" 
-                    style={{ backgroundColor: 'rgba(0, 212, 255, 0.1)', color: 'var(--quantum-cyan)' }}>
-                    <Clock className="h-5 w-5" />
-                  </div>
-                  <div className="ml-4">
-                    <h4 className="text-base font-medium" style={{ color: 'var(--text-standard)' }}>Tournament Start</h4>
-                    <p style={{ color: 'var(--text-subtle)' }}>
-                      {new Date(tournament.start_date).toLocaleDateString()} at{' '}
-                      {new Date(tournament.start_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center" 
-                    style={{ backgroundColor: 'rgba(0, 212, 255, 0.1)', color: 'var(--quantum-cyan)' }}>
-                    <Trophy className="h-5 w-5" />
-                  </div>
-                  <div className="ml-4">
-                    <h4 className="text-base font-medium" style={{ color: 'var(--text-standard)' }}>Tournament End</h4>
-                    <p style={{ color: 'var(--text-subtle)' }}>
-                      {new Date(tournament.end_date).toLocaleDateString()} at{' '}
-                      {new Date(tournament.end_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {activeTab === 'participants' && (
-          <div>
-            <h3 className="text-lg font-medium mb-4" style={{ color: 'var(--text-standard)' }}>Registered Participants</h3>
-            
-            {participants.length === 0 ? (
-              <div className="text-center py-12 bg-bg-elevated rounded-lg">
-                <Users className="mx-auto h-12 w-12" style={{ color: 'var(--text-muted)' }} />
-                <h3 className="mt-2 text-sm font-medium" style={{ color: 'var(--text-standard)' }}>No participants yet</h3>
-                <p className="mt-1 text-sm" style={{ color: 'var(--text-subtle)' }}>
-                  Be the first to register for this tournament.
-                </p>
-                {tournament.status === 'registration_open' && !isRegistered && (
-                  <div className="mt-6">
-                    <button
-                      onClick={handleRegister}
-                      className="btn btn-primary"
-                    >
-                      Register Now
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="bg-glass-bg border border-glass-border rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-border-subtle">
-                  <thead className="bg-bg-elevated">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-subtle)' }}>
-                        Seed
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-subtle)' }}>
-                        Player
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-subtle)' }}>
-                        Rating
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-subtle)' }}>
-                        Registered
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-glass-bg divide-y divide-border-subtle">
-                    {participants.map((participant, index) => (
-                      <tr key={participant.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: 'var(--text-subtle)' }}>
-                          {participant.seed || index + 1}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center" 
-                              style={{ 
-                                background: 'var(--gradient-primary)', 
-                                color: 'var(--text-inverse)' 
-                              }}>
-                              {participant.player?.username.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium" style={{ color: 'var(--text-standard)' }}>
-                                {participant.player?.username}
-                              </div>
-                              {participant.player_id === user?.id && (
-                                <div className="text-xs" style={{ color: 'var(--quantum-cyan)' }}>You</div>
-                              )}
-                            </div>
+          {activeTab === 'participants' && (
+            <div className="tournament-participants">
+              <h3 className="text-xl font-bold mb-4">Registered Participants</h3>
+              
+              {participants.length === 0 ? (
+                <div className="tournament-participants-empty">
+                  <Users size={48} />
+                  <h3>No Players Registered Yet</h3>
+                  <p>Be the first to register for this tournament!</p>
+                </div>
+              ) : (
+                <div className="tournament-participants-grid">
+                  {participants.map((participant) => (
+                    <div key={participant.id} className="tournament-participant-card">
+                      <div className="tournament-participant-info">
+                        <div className="tournament-participant-avatar">
+                          {participant.player?.username.charAt(0).toUpperCase() || '?'}
+                        </div>
+                        <div className="tournament-participant-details">
+                          <div className="tournament-participant-name">{participant.player?.username || 'Unknown Player'}</div>
+                          <div className="tournament-participant-skill">Rating: {participant.player?.elo_rating || '?'}</div>
+                        </div>
+                      </div>
+                      
+                      <div className="tournament-participant-stats">
+                        {participant.seed && (
+                          <div className="tournament-participant-seed">
+                            <span className="tournament-participant-seed-value">#{participant.seed}</span>
+                            <span className="tournament-participant-seed-label">Seed</span>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: 'var(--text-subtle)' }}>
-                          {participant.player?.elo_rating}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: 'var(--text-subtle)' }}>
-                          {new Date(participant.registered_at).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'matches' && (
-          <div>
-            <h3 className="text-lg font-medium mb-4" style={{ color: 'var(--text-standard)' }}>Tournament Matches</h3>
-            
-            {matches.length === 0 ? (
-              <div className="text-center py-12 bg-bg-elevated rounded-lg">
-                <Trophy className="mx-auto h-12 w-12" style={{ color: 'var(--text-muted)' }} />
-                <h3 className="mt-2 text-sm font-medium" style={{ color: 'var(--text-standard)' }}>No matches scheduled yet</h3>
-                <p className="mt-1 text-sm" style={{ color: 'var(--text-subtle)' }}>
-                  Matches will be created when the tournament begins.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {matches.map((match) => (
-                  <div
-                    key={match.id}
-                    className="border border-border-subtle rounded-lg p-4 hover:bg-hover-bg transition-colors"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-medium" style={{ color: 'var(--text-standard)' }}>
-                        {match.player1?.username} vs {match.player2?.username}
-                      </div>
-                      <div className={`px-2 py-1 text-xs font-medium rounded-full`} 
-                        style={{ 
-                          backgroundColor: match.status === 'completed' 
-                            ? 'rgba(0, 255, 170, 0.2)' 
-                            : match.status === 'in_progress' 
-                            ? 'rgba(0, 212, 255, 0.2)' 
-                            : 'rgba(255, 149, 0, 0.2)',
-                          color: match.status === 'completed'
-                            ? 'var(--success-green)'
-                            : match.status === 'in_progress'
-                            ? 'var(--quantum-cyan)'
-                            : 'var(--warning-orange)'
-                        }}>
-                        {match.status.replace('_', ' ')}
-                      </div>
-                    </div>
-                    <div className="flex items-center text-sm mb-2" style={{ color: 'var(--text-subtle)' }}>
-                      <Calendar className="h-4 w-4 mr-2" />
-                      {new Date(match.date).toLocaleDateString()} at{' '}
-                      {new Date(match.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                    <div className="flex items-center text-sm" style={{ color: 'var(--text-subtle)' }}>
-                      <MapPin className="h-4 w-4 mr-2" />
-                      {match.location}
-                    </div>
-                    {match.status === 'completed' && match.score && (
-                      <div className="mt-2 text-sm font-medium">
-                        Score: <span style={{ color: 'var(--quantum-cyan)' }}>{match.score}</span>
-                        {match.winner && (
-                          <span className="ml-2" style={{ color: 'var(--success-green)' }}>
-                            ({match.winner.username} won)
-                          </span>
                         )}
                       </div>
-                    )}
-                    <div className="mt-4 flex justify-end">
-                      <button className="text-sm font-medium flex items-center" style={{ color: 'var(--quantum-cyan)' }}>
-                        View Details
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                      </button>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                  ))}
+                </div>
+              )}
+              
+              {tournament.status === 'registration_open' && !isRegistered && (
+                <div className="mt-6 text-center">
+                  <button
+                    onClick={handleRegister}
+                    className="btn btn-primary btn-glare"
+                  >
+                    <Target size={16} className="mr-2" />
+                    Register Now
+                  </button>
+                </div>
+              )}
+              
+              {isRegistered && tournament.status === 'registration_open' && (
+                <div className="mt-6 text-center">
+                  <button
+                    onClick={handleUnregister}
+                    className="btn btn-ghost"
+                  >
+                    Withdraw from Tournament
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'matches' && (
+            <div>
+              <h3 className="text-xl font-bold mb-4">Tournament Matches</h3>
+              
+              {matches.length === 0 ? (
+                <div className="tournament-bracket-empty">
+                  <Trophy size={48} />
+                  <h3>No matches scheduled yet</h3>
+                  <p>Matches will be created when the tournament begins.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {matches.map((match) => (
+                    <div
+                      key={match.id}
+                      className="tournament-bracket-match"
+                    >
+                      <div className="tournament-bracket-match-header">
+                        <div className="tournament-bracket-match-number">
+                          Match {match.id.slice(-4)}
+                        </div>
+                        <div className={`tournament-bracket-match-status ${match.status}`}>
+                          {match.status === 'completed' && <CheckCircle size={14} />}
+                          {match.status === 'in_progress' && <Play size={14} />}
+                          {match.status === 'pending' && <Clock size={14} />}
+                          <span className="ml-1 capitalize">{match.status.replace('_', ' ')}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="tournament-bracket-match-players">
+                        <div className={`tournament-bracket-player ${match.winner_id === match.player1_id ? 'winner' : ''}`}>
+                          <span className="tournament-bracket-player-name">
+                            {match.player1?.username || 'TBD'}
+                          </span>
+                          {match.score && match.winner_id === match.player1_id && (
+                            <Award size={14} className="tournament-bracket-winner-icon" />
+                          )}
+                        </div>
+                        
+                        <div className="tournament-bracket-vs">vs</div>
+                        
+                        <div className={`tournament-bracket-player ${match.winner_id === match.player2_id ? 'winner' : ''}`}>
+                          <span className="tournament-bracket-player-name">
+                            {match.player2?.username || 'TBD'}
+                          </span>
+                          {match.score && match.winner_id === match.player2_id && (
+                            <Award size={14} className="tournament-bracket-winner-icon" />
+                          )}
+                        </div>
+                      </div>
+                      
+                      {match.score && (
+                        <div className="tournament-bracket-match-score">
+                          Score: {match.score}
+                        </div>
+                      )}
+                      
+                      <div className="tournament-bracket-match-time">
+                        {new Date(match.date).toLocaleDateString()} at{' '}
+                        {new Date(match.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
