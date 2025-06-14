@@ -23,7 +23,7 @@ const Sidebar: React.FC = () => {
   const { profile, signOut } = useAuthStore();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
-  // The "Profile" item with the Settings icon has been removed from this list.
+  // Navigation items without the Profile button
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, path: '/dashboard' },
     { id: 'matches', label: 'My Matches', icon: Swords, path: '/matches' },
@@ -93,7 +93,7 @@ const Sidebar: React.FC = () => {
           </button>
         </div>
 
-        {/* User Info Button - This whole block is now a clickable link */}
+        {/* User Profile Button - This whole block is a clickable link */}
         {!isCollapsed && profile && (
           <Link
             to="/profile"
@@ -102,9 +102,17 @@ const Sidebar: React.FC = () => {
           >
             <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center">
-                <div className="player-avatar w-10 h-10 text-sm">
-                  {profile?.username?.charAt(0).toUpperCase() || 'U'}
-                </div>
+                {profile.profile_picture_url ? (
+                  <img 
+                    src={profile.profile_picture_url} 
+                    alt={profile.username} 
+                    className="player-avatar w-10 h-10 text-sm"
+                  />
+                ) : (
+                  <div className="player-avatar w-10 h-10 text-sm">
+                    {profile?.username?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                )}
                 <div className="ml-3">
                   <div className="text-sm font-medium" style={{ color: 'var(--text-standard)' }}>{profile?.username || 'User'}</div>
                   <div className="text-xs" style={{ color: 'var(--text-subtle)' }}>Rating: {profile?.elo_rating || 1200}</div>
@@ -159,8 +167,17 @@ const Sidebar: React.FC = () => {
               backgroundColor: 'rgba(255, 51, 102, 0.1)' 
             }}
           >
-            <LogOut size={16} />
-            {!isCollapsed && <span>Sign Out</span>}
+            {isSigningOut ? (
+              <>
+                <div className="loading-spinner w-4 h-4"></div>
+                {!isCollapsed && <span>Signing Out...</span>}
+              </>
+            ) : (
+              <>
+                <LogOut size={16} />
+                {!isCollapsed && <span>Sign Out</span>}
+              </>
+            )}
           </button>
         </div>
 
