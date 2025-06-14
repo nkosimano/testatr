@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { ArrowLeft, Calendar, MapPin, Trophy, Users, Clock, Target, ChevronRight, CheckCircle, Play, Award } from 'lucide-react'
+import { ArrowLeft, Calendar, MapPin, Trophy, Users, Clock, Target, ChevronRight, CheckCircle, Play, Award, AlertTriangle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import LoadingSpinner from '../LoadingSpinner'
 import { useAuthStore } from '../../stores/authStore'
+import { apiClient } from '../../lib/aws'
 import type { Database } from '../../types/database'
 
 type Tournament = Database['public']['Tables']['tournaments']['Row'] & {
@@ -33,6 +34,8 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
   const [isRegistering, setIsRegistering] = useState(false)
   const [isUnregistering, setIsUnregistering] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isGeneratingBracket, setIsGeneratingBracket] = useState(false)
+  const [bracketGenerationSuccess, setBracketGenerationSuccess] = useState(false)
   
   const user = useAuthStore(state => state.user)
 
@@ -196,6 +199,34 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
     }
   }
 
+  const handleGenerateBracket = async () => {
+    if (!tournament) return
+    setIsGeneratingBracket(true)
+    setError(null)
+    setBracketGenerationSuccess(false)
+
+    try {
+      // Call the AWS Lambda function to generate the tournament bracket
+      const response = await apiClient.generateTournamentBracket(tournament.id)
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to generate bracket')
+      }
+      
+      setBracketGenerationSuccess(true)
+      
+      // Refresh tournament data after a short delay
+      setTimeout(() => {
+        setBracketGenerationSuccess(false)
+      }, 3000)
+    } catch (error: any) {
+      console.error('Error generating bracket:', error)
+      setError(`Failed to generate bracket: ${error.message}`)
+    } finally {
+      setIsGeneratingBracket(false)
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'registration_open':
@@ -218,6 +249,12 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
   }
 
   const isTournamentFull = tournament && participants.length >= tournament.max_participants
+  const isUserOrganizer = tournament && user && tournament.organizer_id === user.id
+  const canGenerateBracket = isUserOrganizer && 
+                            tournament && 
+                            (tournament.status === 'registration_closed' || 
+                             (tournament.status === 'registration_open' && isTournamentFull)) && 
+                            matches.length === 0
 
   if (loading) {
     return (
@@ -303,6 +340,40 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
         {error && (
           <div className="mt-4 p-3 rounded-md bg-red-50 dark:bg-red-900/20 text-sm text-red-800 dark:text-red-400">
             {error}
+          </div>
+        )}
+
+        {/* Success message for bracket generation */}
+        {bracketGenerationSuccess && (
+          <div className="mt-4 p-3 rounded-md bg-green-50 dark:bg-green-900/20 text-sm text-green-800 dark:text-green-400 flex items-center">
+            <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+            <span>Tournament bracket generated successfully! The tournament is now in progress.</span>
+          </div>
+        )}
+
+        {/* Generate Bracket Button for Organizers */}
+        {canGenerateBracket && (
+          <div className="mt-4">
+            <button
+              onClick={handleGenerateBracket}
+              disabled={isGeneratingBracket}
+              className="btn btn-primary"
+            >
+              {isGeneratingBracket ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Generating Bracket...
+                </div>
+              ) : (
+                <>
+                  <Play className="h-5 w-5 mr-2" />
+                  Generate Tournament Bracket
+                </>
+              )}
+            </button>
+            <p className="mt-2 text-sm" style={{ color: 'var(--text-subtle)' }}>
+              As the tournament organizer, you can manually generate the bracket to start the tournament.
+            </p>
           </div>
         )}
       </div>
@@ -597,6 +668,32 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
                     ? 'Matches will be created when the tournament is full or registration closes.'
                     : 'Matches will be created when the tournament begins.'}
                 </p>
+                
+                {/* Show Generate Bracket button for organizers if appropriate */}
+                {canGenerateBracket && (
+                  <div className="mt-6">
+                    <button
+                      onClick={handleGenerateBracket}
+                      disabled={isGeneratingBracket}
+                      className="btn btn-primary"
+                    >
+                      {isGeneratingBracket ? (
+                        <div className="flex items-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Generating Bracket...
+                        </div>
+                      ) : (
+                        <>
+                          <Play className="h-5 w-5 mr-2" />
+                          Generate Tournament Bracket
+                        </>
+                      )}
+                    </button>
+                    <p className="mt-2 text-sm" style={{ color: 'var(--text-subtle)' }}>
+                      As the tournament organizer, you can manually generate the bracket to start the tournament.
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
