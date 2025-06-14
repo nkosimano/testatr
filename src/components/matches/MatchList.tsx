@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, Trophy, Clock, Plus, Swords } from 'lucide-react';
+import { Search, Filter, Trophy, Clock, Plus, Swords, Gavel } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useMatches } from '../../hooks/useMatches';
 import { useMatchMutations } from '../../hooks/useMatchMutations';
@@ -42,6 +42,7 @@ export const MatchList: React.FC = () => {
       winner: m.winner_id,
       detailedStatsId: m.detailed_stats_id,
       scoreDisplay: m.score_display,
+      tournamentId: m.tournament_id
     }));
   }, [rawMatches]);
 
@@ -70,6 +71,11 @@ export const MatchList: React.FC = () => {
       );
     }
 
+    // Filter out in-progress matches that are part of tournaments for the "All Matches" section
+    filtered = filtered.filter(match => 
+      !(match.status === 'in_progress' && match.tournamentId)
+    );
+
     // Sort by date (newest first)
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [matches, searchQuery, statusFilter, timeFilter]);
@@ -85,6 +91,11 @@ export const MatchList: React.FC = () => {
     if (!user) return [];
     return matches.filter(match => match.status === 'pending' && match.challengedId === user.id);
   }, [matches, user]);
+
+  // Get tournament matches that are in progress
+  const tournamentMatches = useMemo(() => {
+    return matches.filter(match => match.tournamentId && match.status === 'in_progress');
+  }, [matches]);
 
   const handleReportScore = (match: Match) => {
     setSelectedMatch(match);
@@ -125,6 +136,7 @@ export const MatchList: React.FC = () => {
 
   const handleCreateMatch = () => setShowCreateForm(true);
   const handleViewMatch = (matchId: string) => navigate(`/matches/${matchId}`);
+  const handleGoToLiveScoring = () => navigate('/umpire');
 
   if (isLoading) {
     return (
@@ -175,6 +187,26 @@ export const MatchList: React.FC = () => {
           </div>
         </header>
 
+        {/* Live Scoring Link */}
+        <div className="bg-glass-bg backdrop-filter-blur border border-glass-border rounded-lg p-4 mb-6 flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-medium" style={{ color: 'var(--text-standard)' }}>
+              <Gavel size={20} className="inline-block mr-2" />
+              Live Scoring Dashboard
+            </h3>
+            <p style={{ color: 'var(--text-subtle)' }}>
+              Access the live scoring interface for matches and tournaments
+            </p>
+          </div>
+          <button 
+            onClick={handleGoToLiveScoring}
+            className="btn btn-primary"
+          >
+            <Gavel size={16} className="mr-2" />
+            Go to Live Scoring
+          </button>
+        </div>
+
         <div className="match-list-controls">
           <div className="search-bar">
             <Search size={20} className="search-icon" />
@@ -211,6 +243,37 @@ export const MatchList: React.FC = () => {
             </select>
           </div>
         </div>
+
+        {/* Tournament Matches Section */}
+        {tournamentMatches.length > 0 && (
+          <section className="match-section">
+            <h2 className="section-title">
+              <Trophy size={22} className="section-title-icon" />
+              Tournament Matches ({tournamentMatches.length})
+            </h2>
+            <div className="match-grid">
+              {tournamentMatches.map((match) => (
+                <MatchCard 
+                  key={match.id} 
+                  match={match} 
+                  currentUserId={user?.id || ''} 
+                  onReportScore={() => handleReportScore(match)}
+                  onViewDetails={() => handleViewMatch(match.id)}
+                  onActionComplete={() => refetch()}
+                />
+              ))}
+            </div>
+            <div className="mt-4 text-center">
+              <button 
+                onClick={handleGoToLiveScoring}
+                className="btn btn-secondary"
+              >
+                <Gavel size={16} className="mr-2" />
+                Go to Live Scoring Dashboard
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* Pending Match Requests Section */}
         {pendingMatches.length > 0 && (

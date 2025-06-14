@@ -13,13 +13,15 @@ import {
   Minus,
   Zap,
   Target,
-  Award
+  Award,
+  Gavel
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
 import { apiClient } from '../lib/aws';
 import MatchScoring from './matches/MatchScoring';
 import LoadingSpinner from './LoadingSpinner';
+import { Link } from 'react-router-dom';
 import type { Database } from '../types/database';
 
 type Tournament = Database['public']['Tables']['tournaments']['Row'];
@@ -69,9 +71,11 @@ const UmpirePage: React.FC = () => {
   const [player2Profile, setPlayer2Profile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [pointType, setPointType] = useState<string>('normal');
+  const [recentMatches, setRecentMatches] = useState<Match[]>([]);
 
   useEffect(() => {
     loadTournaments();
+    loadRecentMatches();
   }, [user]);
 
   useEffect(() => {
@@ -100,6 +104,29 @@ const UmpirePage: React.FC = () => {
       console.error('Error loading tournaments:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadRecentMatches = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('matches')
+        .select(`
+          *,
+          player1:profiles!matches_player1_id_fkey(username, elo_rating),
+          player2:profiles!matches_player2_id_fkey(username, elo_rating)
+        `)
+        .or(`player1_id.eq.${user.id},player2_id.eq.${user.id}`)
+        .eq('status', 'in_progress')
+        .order('date', { ascending: true })
+        .limit(5);
+        
+      if (error) throw error;
+      setRecentMatches(data || []);
+    } catch (error) {
+      console.error('Error loading recent matches:', error);
     }
   };
 
@@ -191,6 +218,13 @@ const UmpirePage: React.FC = () => {
     setDetailedStatsId(null);
     setPlayer1Profile(null);
     setPlayer2Profile(null);
+    
+    // Refresh data
+    loadTournaments();
+    loadRecentMatches();
+    if (selectedTournament) {
+      loadMatches();
+    }
   };
 
   const getMatchStatus = (match: Match) => {
@@ -230,13 +264,61 @@ const UmpirePage: React.FC = () => {
       <div className="umpire-container">
         <div className="umpire-header">
           <h1 className="umpire-title">
-            <Trophy size={32} />
+            <Gavel size={32} />
             Live Scoring Dashboard
           </h1>
           <p className="umpire-subtitle">
             Manage live tournament matches and scoring for your tournaments
           </p>
         </div>
+
+        {/* Quick Access to Matches */}
+        {recentMatches.length > 0 && (
+          <div className="bg-glass-bg backdrop-filter-blur border border-glass-border rounded-lg p-4 mb-6">
+            <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--text-standard)' }}>
+              Your Active Matches
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {recentMatches.map(match => (
+                <div 
+                  key={match.id} 
+                  className="bg-bg-elevated p-4 rounded-lg border border-glass-border hover:border-quantum-cyan transition-all cursor-pointer"
+                  onClick={() => handleStartMatch(match)}
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="text-sm font-medium px-2 py-1 rounded-full" style={{ 
+                      backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                      color: 'var(--quantum-cyan)'
+                    }}>
+                      In Progress
+                    </div>
+                    <div className="text-xs" style={{ color: 'var(--text-subtle)' }}>
+                      {new Date(match.date).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div className="text-center mb-2 font-medium" style={{ color: 'var(--text-standard)' }}>
+                    {match.player1?.username} vs {match.player2?.username}
+                  </div>
+                  <button 
+                    className="w-full btn btn-primary btn-sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleStartMatch(match);
+                    }}
+                  >
+                    <Gavel size={14} className="mr-1" />
+                    Continue Scoring
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 text-center">
+              <Link to="/matches" className="text-quantum-cyan hover:underline text-sm">
+                View all your matches
+              </Link>
+            </div>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
@@ -260,6 +342,12 @@ const UmpirePage: React.FC = () => {
               <p className="umpire-empty-note">
                 Tournaments must have closed registration to appear here.
               </p>
+              <div className="mt-6">
+                <Link to="/tournaments" className="btn btn-primary">
+                  <Trophy size={16} className="mr-2" />
+                  View All Tournaments
+                </Link>
+              </div>
             </div>
           </div>
         ) : (
@@ -338,6 +426,12 @@ const UmpirePage: React.FC = () => {
                       <p className="umpire-empty-description">
                         There are no matches available for this tournament yet.
                       </p>
+                      <div className="mt-4">
+                        <Link to={`/tournaments/${selectedTournament.id}`} className="btn btn-primary">
+                          <Trophy size={16} className="mr-2" />
+                          View Tournament Details
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -379,6 +473,16 @@ const UmpirePage: React.FC = () => {
                           >
                             <Play size={16} />
                             Umpire Match
+                          </button>
+                        )}
+                        
+                        {match.status === 'in_progress' && (
+                          <button
+                            onClick={() => handleStartMatch(match)}
+                            className="umpire-match-btn"
+                          >
+                            <Gavel size={16} />
+                            Continue Scoring
                           </button>
                         )}
                       </div>

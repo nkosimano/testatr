@@ -15,6 +15,7 @@ import LoadingSpinner from '../LoadingSpinner';
 import { useMatchMutations } from '../../hooks/useMatchMutations';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
+import { Link } from 'react-router-dom';
 import type { Database } from '../../types/database';
 
 type Match = Database['public']['Tables']['matches']['Row'] & {
@@ -351,111 +352,106 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
           </div>
         )}
 
-        {/* Scoreboard */}
-        <div className="bg-glass-bg backdrop-filter-blur border border-glass-border rounded-lg p-6 mb-6">
-          <div className="grid grid-cols-3 gap-4">
-            {/* Player 1 */}
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <div className="player-avatar">
-                  {match.player1?.username.charAt(0).toUpperCase() || 'P1'}
-                </div>
-                <div className="font-bold text-lg">{match.player1?.username || 'Player 1'}</div>
-                {isServing(match.player1_id) && (
-                  <div className="w-3 h-3 bg-accent-yellow rounded-full animate-pulse" title="Serving"></div>
-                )}
-              </div>
-              
-              {/* Sets */}
-              <div className="flex justify-center gap-2 mb-4">
-                {formattedSets.map((set, index) => (
-                  <div 
-                    key={index} 
-                    className="w-8 h-8 flex items-center justify-center bg-bg-elevated border border-border-subtle rounded-md font-mono font-bold"
-                  >
-                    {set.player1}
-                  </div>
-                ))}
-              </div>
-              
-              {/* Current Game */}
-              <div className={`text-3xl font-bold font-mono transition-all duration-500 ease-in-out ${lastPointPlayerId === match.player1_id ? 'text-success-green scale-125' : ''}`}>
-                {currentGameScore.player1}
-              </div>
-            </div>
-            
-            {/* Center/Score Info */}
-            <div className="text-center flex flex-col items-center justify-center">
-              <div className="text-xl font-bold mb-2">VS</div>
-              {score.is_tiebreak ? (
-                <div className="text-sm bg-warning-orange bg-opacity-20 text-warning-orange px-3 py-1 rounded-full">
-                  Tiebreak
-                </div>
-              ) : (
-                currentGameScore.player1 === '40' && currentGameScore.player2 === '40' ? (
-                  <div className="text-sm bg-accent-yellow bg-opacity-20 text-accent-yellow px-3 py-1 rounded-full">
-                    Deuce
-                  </div>
-                ) : (
-                  currentGameScore.player1 === 'AD' ? (
-                    <div className="text-sm bg-quantum-cyan bg-opacity-20 text-quantum-cyan px-3 py-1 rounded-full">
-                      Advantage {match.player1?.username}
-                    </div>
-                  ) : (
-                    currentGameScore.player2 === 'AD' ? (
-                      <div className="text-sm bg-quantum-cyan bg-opacity-20 text-quantum-cyan px-3 py-1 rounded-full">
-                        Advantage {match.player2?.username}
-                      </div>
-                    ) : null
-                  )
-                )
-              )}
-            </div>
-            
-            {/* Player 2 */}
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <div className="player-avatar">
-                  {match.player2?.username.charAt(0).toUpperCase() || 'P2'}
-                </div>
-                <div className="font-bold text-lg">{match.player2?.username || 'Player 2'}</div>
-                {isServing(match.player2_id) && (
-                  <div className="w-3 h-3 bg-accent-yellow rounded-full animate-pulse" title="Serving"></div>
-                )}
-              </div>
-              
-              {/* Sets */}
-              <div className="flex justify-center gap-2 mb-4">
-                {formattedSets.map((set, index) => (
-                  <div 
-                    key={index} 
-                    className="w-8 h-8 flex items-center justify-center bg-bg-elevated border border-border-subtle rounded-md font-mono font-bold"
-                  >
-                    {set.player2}
-                  </div>
-                ))}
-              </div>
-              
-              {/* Current Game */}
-              <div className={`text-3xl font-bold font-mono transition-all duration-500 ease-in-out ${lastPointPlayerId === match.player2_id ? 'text-success-green scale-125' : ''}`}>
-                {currentGameScore.player2}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Score History and Undo Button */}
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold">Point History</h3>
+        {/* Undo Button */}
+        <div className="flex justify-end mb-4">
           <button
             onClick={handleUndoLastPoint}
             disabled={isSubmitting || scoreHistory.length === 0}
-            className="btn btn-secondary"
+            className="undo-button"
           >
             <RotateCcw className="h-5 w-5 mr-2" />
             Undo Last Point
           </button>
         </div>
+
+        {/* Enhanced Score Display */}
+        <div className="score-display">
+          <h3 className="score-display-title">Current Score</h3>
+          <div className="score-display-content">
+            <div className="score-display-player">
+              <div className="flex items-center">
+                <span className="score-display-name">{match.player1?.username}</span>
+                {isServing(match.player1_id) && <div className="score-display-serving"></div>}
+              </div>
+              <div className={`score-display-points ${lastPointPlayerId === match.player1_id ? 'text-success-green scale-110' : ''}`}>
+                {currentGameScore.player1}
+              </div>
+              <div className="score-display-sets">
+                {formattedSets.map((set, index) => (
+                  <div key={index} className="score-display-set">{set.player1}</div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="score-display-vs">VS</div>
+            
+            <div className="score-display-player">
+              <div className="flex items-center">
+                <span className="score-display-name">{match.player2?.username}</span>
+                {isServing(match.player2_id) && <div className="score-display-serving"></div>}
+              </div>
+              <div className={`score-display-points ${lastPointPlayerId === match.player2_id ? 'text-success-green scale-110' : ''}`}>
+                {currentGameScore.player2}
+              </div>
+              <div className="score-display-sets">
+                {formattedSets.map((set, index) => (
+                  <div key={index} className="score-display-set">{set.player2}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          {/* Game Status */}
+          {score.is_tiebreak ? (
+            <div className="mt-4 text-sm bg-warning-orange bg-opacity-20 text-warning-orange px-3 py-1 rounded-full inline-block">
+              Tiebreak
+            </div>
+          ) : (
+            currentGameScore.player1 === '40' && currentGameScore.player2 === '40' ? (
+              <div className="mt-4 text-sm bg-accent-yellow bg-opacity-20 text-accent-yellow px-3 py-1 rounded-full inline-block">
+                Deuce
+              </div>
+            ) : (
+              currentGameScore.player1 === 'AD' ? (
+                <div className="mt-4 text-sm bg-quantum-cyan bg-opacity-20 text-quantum-cyan px-3 py-1 rounded-full inline-block">
+                  Advantage {match.player1?.username}
+                </div>
+              ) : (
+                currentGameScore.player2 === 'AD' ? (
+                  <div className="mt-4 text-sm bg-quantum-cyan bg-opacity-20 text-quantum-cyan px-3 py-1 rounded-full inline-block">
+                    Advantage {match.player2?.username}
+                  </div>
+                ) : null
+              )
+            )
+          )}
+        </div>
+
+        {/* Point History */}
+        {scoreHistory.length > 0 && (
+          <div className="point-history">
+            <h3 className="point-history-title">Recent Points</h3>
+            <div className="point-history-list">
+              {scoreHistory.slice(0, 5).map((entry, index) => {
+                const playerName = entry.pointWinner === match.player1_id 
+                  ? match.player1?.username 
+                  : match.player2?.username;
+                
+                return (
+                  <div key={index} className="point-history-item">
+                    <div>
+                      <span className="point-history-player">{playerName}</span>
+                      <span className="point-history-type"> - {getPointTypeLabel(entry.pointType as PointType)}</span>
+                    </div>
+                    <span className="point-history-time">
+                      {new Date(entry.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Point Type Selection */}
         <div className="bg-glass-bg backdrop-filter-blur border border-glass-border rounded-lg p-6 mb-6">
@@ -511,44 +507,15 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
           </button>
         </div>
 
-        {/* Recent Points History */}
-        {scoreHistory.length > 0 && (
-          <div className="bg-glass-bg backdrop-filter-blur border border-glass-border rounded-lg p-6 mb-6">
-            <h3 className="text-lg font-bold mb-4">Recent Points</h3>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {scoreHistory.slice(0, 5).map((entry, index) => {
-                const playerName = entry.pointWinner === match.player1_id 
-                  ? match.player1?.username 
-                  : match.player2?.username;
-                
-                return (
-                  <div key={index} className="flex items-center justify-between p-2 bg-bg-elevated rounded-md">
-                    <div className="flex items-center gap-2">
-                      <Clock size={14} className="text-text-muted" />
-                      <span className="text-sm">
-                        {playerName} - {getPointTypeLabel(entry.pointType as PointType)}
-                      </span>
-                    </div>
-                    <span className="text-xs text-text-muted">
-                      {new Date(entry.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* Action Buttons */}
         <div className="flex gap-4">
-          <button
-            onClick={onBack}
+          <Link
+            to="/matches"
             className="btn btn-ghost flex-1"
-            disabled={isSubmitting}
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
-            Back
-          </button>
+            Back to Matches
+          </Link>
           
           <button
             onClick={handleEndMatch}
