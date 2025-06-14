@@ -15,8 +15,8 @@ import {
   BarChart3,
   RotateCcw
 } from 'lucide-react';
-import { Tournament, TournamentParticipant, TournamentMatch } from '../types';
-import { useAuth } from '../contexts/AuthContext';
+import { Tournament } from '../types';
+import { useAuthStore } from '../stores/authStore';
 
 interface TournamentDetailsPageProps {
   tournament: Tournament;
@@ -33,21 +33,21 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
   onBack, 
   onRegister 
 }) => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'overview' | 'participants' | 'bracket' | 'standings'>('overview');
 
   // Use tournament organizer data directly or fallback to placeholder
-  const organizer = tournament.organizer || { name: 'Unknown Organizer' };
-  const umpire = { name: 'TBD' }; // Placeholder since umpire data is not available
+  const organizer = tournament.organizer || { username: 'Unknown Organizer' };
   const isRegistered = tournament.isRegistered || false;
   const isOrganizer = tournament.organizerId === user?.id;
   
-  const registrationDeadline = new Date(tournament.registrationDeadline);
+  const registrationDeadline = new Date(tournament.startDate); // Using startDate as registration deadline
   const startDate = new Date(tournament.startDate);
   const endDate = new Date(tournament.endDate);
   
-  const isRegistrationOpen = tournament.status === 'registration_open' && new Date() < registrationDeadline;
-  const canRegister = isRegistrationOpen && !isRegistered && !isOrganizer && participants.length < tournament.maxParticipants;
+  const isRegistrationOpen = tournament.status === 'registration_open';
+  const canRegister = isRegistrationOpen && !isRegistered && !isOrganizer && 
+    (tournament.participantCount || 0) < tournament.maxParticipants;
 
   const getStatusColor = (status: Tournament['status']) => {
     switch (status) {
@@ -75,7 +75,7 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
       case 'completed':
         return 'Completed';
       default:
-        return status;
+        return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
   };
 
@@ -88,7 +88,7 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
       case 'round_robin':
         return 'Round Robin';
       default:
-        return format;
+        return format.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
   };
 
@@ -140,22 +140,15 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
             <div className="tournament-info-item">
               <span className="tournament-info-label">Current Registration:</span>
               <span className="tournament-info-value">
-                {participants.length}/{tournament.maxParticipants} players
+                {tournament.participantCount}/{tournament.maxParticipants} players
               </span>
             </div>
             {tournament.format === 'round_robin' && (
               <div className="tournament-info-item">
                 <span className="tournament-info-label">Total Matches:</span>
                 <span className="tournament-info-value">
-                  {(participants.length * (participants.length - 1)) / 2}
-                </span>
-              </div>
-            )}
-            {tournament.format === 'double_elimination' && (
-              <div className="tournament-info-item">
-                <span className="tournament-info-label">Total Matches:</span>
-                <span className="tournament-info-value">
-                  {participants.length > 0 ? (participants.length - 1) + (participants.length - 2) + 1 : 0}
+                  {(tournament.participantCount && tournament.participantCount > 0) ? 
+                    (tournament.participantCount * (tournament.participantCount - 1)) / 2 : 0}
                 </span>
               </div>
             )}
@@ -174,11 +167,11 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
             </div>
             <div className="tournament-info-item">
               <span className="tournament-info-label">Organizer:</span>
-              <span className="tournament-info-value">{organizer?.name || 'Unknown'}</span>
+              <span className="tournament-info-value">{organizer.username || 'Unknown'}</span>
             </div>
             <div className="tournament-info-item">
               <span className="tournament-info-label">Umpire:</span>
-              <span className="tournament-info-value">{umpire?.name || 'TBD'}</span>
+              <span className="tournament-info-value">TBD</span>
             </div>
           </div>
         </div>
@@ -189,20 +182,20 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
         <div className="tournament-progress-header">
           <h3>Registration Progress</h3>
           <span className="tournament-progress-count">
-            {participants.length}/{tournament.maxParticipants} players
+            {tournament.participantCount}/{tournament.maxParticipants} players
           </span>
         </div>
         <div className="tournament-progress-bar">
           <div 
             className="tournament-progress-fill"
             style={{ 
-              width: `${(participants.length / tournament.maxParticipants) * 100}%`,
-              backgroundColor: participants.length === tournament.maxParticipants ? 'var(--success-green)' : 'var(--quantum-cyan)'
+              width: `${((tournament.participantCount || 0) / tournament.maxParticipants) * 100}%`,
+              backgroundColor: (tournament.participantCount || 0) === tournament.maxParticipants ? 'var(--success-green)' : 'var(--quantum-cyan)'
             }}
           />
         </div>
         <div className="tournament-progress-percentage">
-          {Math.round((participants.length / tournament.maxParticipants) * 100)}% Full
+          {Math.round(((tournament.participantCount || 0) / tournament.maxParticipants) * 100)}% Full
         </div>
       </div>
 
@@ -308,7 +301,7 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
               <div className="tournament-status-subtitle">
                 {canRegister 
                   ? 'Join this tournament and compete against other players!'
-                  : participants.length >= tournament.maxParticipants 
+                  : (tournament.participantCount || 0) >= tournament.maxParticipants 
                     ? 'Tournament is full'
                     : 'Registration has closed'
                 }
@@ -346,7 +339,7 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
             <div key={participant.id} className="tournament-participant-card">
               <div className="tournament-participant-info">
                 <div className="tournament-participant-avatar">
-                  {player.username.split(' ').map((n: string) => n[0]).join('')}
+                  {player.username.charAt(0).toUpperCase()}
                 </div>
                 <div className="tournament-participant-details">
                   <div className="tournament-participant-name">{player.username}</div>
@@ -404,7 +397,7 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
                   <div key={match.id} className={`round-robin-match ${match.status}`}>
                     <div className="round-robin-match-header">
                       <span className="round-robin-match-number">
-                        Match {match.match_number || match.id}
+                        Match {match.match_number || match.id.slice(-4)}
                       </span>
                       <div className={`round-robin-match-status ${match.status}`}>
                         {match.status === 'completed' && <CheckCircle size={14} />}
@@ -437,7 +430,7 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
                     
                     {match.score && (
                       <div className="round-robin-match-score">
-                        {match.score}
+                        {typeof match.score === 'string' ? match.score : 'Score available'}
                       </div>
                     )}
                     
@@ -529,7 +522,7 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
                           <div key={match.id} className={`tournament-bracket-match ${match.status}`}>
                             <div className="tournament-bracket-match-header">
                               <span className="tournament-bracket-match-number">
-                                Match {match.match_number || match.id}
+                                Match {match.match_number || match.id.slice(-4)}
                               </span>
                               <div className={`tournament-bracket-match-status ${match.status}`}>
                                 {match.status === 'completed' && <CheckCircle size={14} />}
@@ -562,7 +555,7 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
                             
                             {match.score && (
                               <div className="tournament-bracket-match-score">
-                                {match.score}
+                                {typeof match.score === 'string' ? match.score : 'Score available'}
                               </div>
                             )}
                             
@@ -672,7 +665,7 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
                     <div className="standings-player-col">
                       <div className="standings-player-info">
                         <div className="player-avatar">
-                          {standing.player?.username.split(' ').map((n: string) => n[0]).join('') || '?'}
+                          {standing.player?.username.charAt(0).toUpperCase() || '?'}
                         </div>
                         <div className="standings-player-details">
                           <div className="standings-player-name">{standing.player?.username || 'Unknown Player'}</div>
