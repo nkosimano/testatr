@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   ArrowLeft, 
   Calendar, 
@@ -16,56 +16,30 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { Tournament, TournamentParticipant, TournamentMatch } from '../types';
-import { TournamentService } from '../services/TournamentService';
 import { UserService } from '../services/UserService';
 import { useAuth } from '../contexts/AuthContext';
 
 interface TournamentDetailsPageProps {
   tournament: Tournament;
+  participants: any[];
+  matches: any[];
   onBack: () => void;
   onRegister?: () => void;
 }
 
 const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({ 
   tournament, 
+  participants,
+  matches,
   onBack, 
   onRegister 
 }) => {
   const { user } = useAuth();
-  const [participants, setParticipants] = useState<TournamentParticipant[]>([]);
-  const [matches, setMatches] = useState<TournamentMatch[]>([]);
   const [activeTab, setActiveTab] = useState<'overview' | 'participants' | 'bracket' | 'standings'>('overview');
-  const [standings, setStandings] = useState<Array<{
-    playerId: string;
-    player: any;
-    wins: number;
-    losses: number;
-    matchesPlayed: number;
-    winPercentage: number;
-    position: number;
-  }>>([]);
-
-  useEffect(() => {
-    loadTournamentData();
-  }, [tournament.id]);
-
-  const loadTournamentData = () => {
-    const tournamentParticipants = TournamentService.getTournamentParticipants(tournament.id);
-    const tournamentMatches = TournamentService.getTournamentMatches(tournament.id);
-    
-    setParticipants(tournamentParticipants);
-    setMatches(tournamentMatches);
-
-    // Load standings for round robin tournaments
-    if (tournament.format === 'round_robin') {
-      const roundRobinStandings = TournamentService.getRoundRobinStandings(tournament.id);
-      setStandings(roundRobinStandings);
-    }
-  };
 
   const organizer = UserService.getPlayerById(tournament.organizerId);
   const umpire = UserService.getPlayerById(tournament.umpireId);
-  const isRegistered = TournamentService.isPlayerRegistered(tournament.id, user?.id || '');
+  const isRegistered = tournament.isRegistered || false;
   const isOrganizer = tournament.organizerId === user?.id;
   
   const registrationDeadline = new Date(tournament.registrationDeadline);
@@ -365,24 +339,24 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
       
       <div className="tournament-participants-grid">
         {participants.map((participant, index) => {
-          const player = UserService.getPlayerById(participant.playerId);
+          const player = participant.player;
           if (!player) return null;
 
           return (
             <div key={participant.id} className="tournament-participant-card">
               <div className="tournament-participant-info">
                 <div className="tournament-participant-avatar">
-                  {player.name.split(' ').map(n => n[0]).join('')}
+                  {player.username.split(' ').map((n: string) => n[0]).join('')}
                 </div>
                 <div className="tournament-participant-details">
-                  <div className="tournament-participant-name">{player.name}</div>
-                  <div className="tournament-participant-skill">{player.skillLevel}</div>
+                  <div className="tournament-participant-name">{player.username}</div>
+                  <div className="tournament-participant-skill">Rating: {player.elo_rating}</div>
                 </div>
               </div>
               
               <div className="tournament-participant-stats">
                 <div className="tournament-participant-rating">
-                  <span className="tournament-participant-rating-value">{player.rating}</span>
+                  <span className="tournament-participant-rating-value">{player.elo_rating}</span>
                   <span className="tournament-participant-rating-label">Rating</span>
                 </div>
                 {participant.seed && (
@@ -423,14 +397,14 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
             <h3>All Matches</h3>
             <div className="round-robin-matches-grid">
               {matches.map(match => {
-                const player1 = match.player1Id ? UserService.getPlayerById(match.player1Id) : null;
-                const player2 = match.player2Id ? UserService.getPlayerById(match.player2Id) : null;
+                const player1 = match.player1;
+                const player2 = match.player2;
                 
                 return (
                   <div key={match.id} className={`round-robin-match ${match.status}`}>
                     <div className="round-robin-match-header">
                       <span className="round-robin-match-number">
-                        Match {match.matchNumber}
+                        Match {match.match_number || match.id}
                       </span>
                       <div className={`round-robin-match-status ${match.status}`}>
                         {match.status === 'completed' && <CheckCircle size={14} />}
@@ -440,22 +414,22 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
                     </div>
                     
                     <div className="round-robin-match-players">
-                      <div className={`round-robin-player ${match.winnerId === match.player1Id ? 'winner' : ''}`}>
+                      <div className={`round-robin-player ${match.winner_id === match.player1_id ? 'winner' : ''}`}>
                         <span className="round-robin-player-name">
-                          {player1?.name || 'TBD'}
+                          {player1?.username || 'TBD'}
                         </span>
-                        {match.score && match.winnerId === match.player1Id && (
+                        {match.score && match.winner_id === match.player1_id && (
                           <Award size={14} className="round-robin-winner-icon" />
                         )}
                       </div>
                       
                       <div className="round-robin-vs">vs</div>
                       
-                      <div className={`round-robin-player ${match.winnerId === match.player2Id ? 'winner' : ''}`}>
+                      <div className={`round-robin-player ${match.winner_id === match.player2_id ? 'winner' : ''}`}>
                         <span className="round-robin-player-name">
-                          {player2?.name || 'TBD'}
+                          {player2?.username || 'TBD'}
                         </span>
-                        {match.score && match.winnerId === match.player2Id && (
+                        {match.score && match.winner_id === match.player2_id && (
                           <Award size={14} className="round-robin-winner-icon" />
                         )}
                       </div>
@@ -467,9 +441,9 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
                       </div>
                     )}
                     
-                    {match.scheduledDate && (
+                    {match.date && (
                       <div className="round-robin-match-time">
-                        {new Date(match.scheduledDate).toLocaleString()}
+                        {new Date(match.date).toLocaleString()}
                       </div>
                     )}
                   </div>
@@ -505,9 +479,9 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
             </div>
 
             {/* Group matches by round */}
-            {Array.from(new Set(matches.map(m => m.round))).sort().map(round => {
-              const roundMatches = matches.filter(m => m.round === round);
-              const maxRound = Math.max(...matches.map(m => m.round));
+            {Array.from(new Set(matches.map(m => m.round || 1))).sort().map(round => {
+              const roundMatches = matches.filter(m => (m.round || 1) === round);
+              const maxRound = Math.max(...matches.map(m => m.round || 1));
               
               // Determine round name based on format
               let roundName = `Round ${round}`;
@@ -546,16 +520,16 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
                   
                   <div className="tournament-bracket-matches">
                     {roundMatches
-                      .sort((a, b) => a.matchNumber - b.matchNumber)
+                      .sort((a, b) => (a.match_number || 0) - (b.match_number || 0))
                       .map(match => {
-                        const player1 = match.player1Id ? UserService.getPlayerById(match.player1Id) : null;
-                        const player2 = match.player2Id ? UserService.getPlayerById(match.player2Id) : null;
+                        const player1 = match.player1;
+                        const player2 = match.player2;
                         
                         return (
                           <div key={match.id} className={`tournament-bracket-match ${match.status}`}>
                             <div className="tournament-bracket-match-header">
                               <span className="tournament-bracket-match-number">
-                                Match {match.matchNumber}
+                                Match {match.match_number || match.id}
                               </span>
                               <div className={`tournament-bracket-match-status ${match.status}`}>
                                 {match.status === 'completed' && <CheckCircle size={14} />}
@@ -565,22 +539,22 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
                             </div>
                             
                             <div className="tournament-bracket-match-players">
-                              <div className={`tournament-bracket-player ${match.winnerId === match.player1Id ? 'winner' : ''}`}>
+                              <div className={`tournament-bracket-player ${match.winner_id === match.player1_id ? 'winner' : ''}`}>
                                 <span className="tournament-bracket-player-name">
-                                  {player1?.name || 'TBD'}
+                                  {player1?.username || 'TBD'}
                                 </span>
-                                {match.score && match.winnerId === match.player1Id && (
+                                {match.score && match.winner_id === match.player1_id && (
                                   <Award size={14} className="tournament-bracket-winner-icon" />
                                 )}
                               </div>
                               
                               <div className="tournament-bracket-vs">vs</div>
                               
-                              <div className={`tournament-bracket-player ${match.winnerId === match.player2Id ? 'winner' : ''}`}>
+                              <div className={`tournament-bracket-player ${match.winner_id === match.player2_id ? 'winner' : ''}`}>
                                 <span className="tournament-bracket-player-name">
-                                  {player2?.name || 'TBD'}
+                                  {player2?.username || 'TBD'}
                                 </span>
-                                {match.score && match.winnerId === match.player2Id && (
+                                {match.score && match.winner_id === match.player2_id && (
                                   <Award size={14} className="tournament-bracket-winner-icon" />
                                 )}
                               </div>
@@ -592,9 +566,9 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
                               </div>
                             )}
                             
-                            {match.scheduledDate && (
+                            {match.date && (
                               <div className="tournament-bracket-match-time">
-                                {new Date(match.scheduledDate).toLocaleString()}
+                                {new Date(match.date).toLocaleString()}
                               </div>
                             )}
                           </div>
@@ -632,6 +606,40 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
       );
     }
 
+    // Calculate standings from matches for round robin
+    const standings = participants.map(participant => {
+      const playerMatches = matches.filter(match => 
+        match.player1_id === participant.player_id || match.player2_id === participant.player_id
+      );
+      
+      const wins = playerMatches.filter(match => 
+        match.status === 'completed' && match.winner_id === participant.player_id
+      ).length;
+      
+      const losses = playerMatches.filter(match => 
+        match.status === 'completed' && match.winner_id !== participant.player_id && match.winner_id !== null
+      ).length;
+      
+      const matchesPlayed = wins + losses;
+      const winPercentage = matchesPlayed > 0 ? (wins / matchesPlayed) * 100 : 0;
+      
+      return {
+        playerId: participant.player_id,
+        player: participant.player,
+        wins,
+        losses,
+        matchesPlayed,
+        winPercentage,
+        position: 0 // Will be calculated after sorting
+      };
+    }).sort((a, b) => {
+      if (a.wins !== b.wins) return b.wins - a.wins;
+      return b.winPercentage - a.winPercentage;
+    }).map((standing, index) => ({
+      ...standing,
+      position: index + 1
+    }));
+
     return (
       <div className="tournament-standings">
         <div className="tournament-standings-header">
@@ -664,11 +672,11 @@ const TournamentDetailsPage: React.FC<TournamentDetailsPageProps> = ({
                     <div className="standings-player-col">
                       <div className="standings-player-info">
                         <div className="player-avatar">
-                          {standing.player?.name.split(' ').map((n: string) => n[0]).join('') || '?'}
+                          {standing.player?.username.split(' ').map((n: string) => n[0]).join('') || '?'}
                         </div>
                         <div className="standings-player-details">
-                          <div className="standings-player-name">{standing.player?.name || 'Unknown Player'}</div>
-                          <div className="standings-player-rating">Rating: {standing.player?.rating || '?'}</div>
+                          <div className="standings-player-name">{standing.player?.username || 'Unknown Player'}</div>
+                          <div className="standings-player-rating">Rating: {standing.player?.elo_rating || '?'}</div>
                         </div>
                       </div>
                     </div>
