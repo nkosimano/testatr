@@ -4,16 +4,27 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { TournamentDetails } from '../components/tournaments/TournamentDetails';
-import { Tournament } from '../types';
-import { useTournamentMutations } from '../hooks/useTournamentMutations';
+import { apiClient } from '../lib/aws';
 
 const TournamentDetailPage: React.FC = () => {
   const { tournamentId } = useParams<{ tournamentId: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadingTimeout, setLoadingTimeout] = useState<boolean>(false);
   
   const { user } = useAuthStore();
+
+  useEffect(() => {
+    // Set a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        setLoadingTimeout(true);
+      }
+    }, 15000); // 15 seconds timeout
+
+    return () => clearTimeout(timeoutId);
+  }, [loading]);
 
   if (!tournamentId) {
     return (
@@ -35,14 +46,34 @@ const TournamentDetailPage: React.FC = () => {
     navigate('/tournaments');
   };
 
-  if (loading) {
+  // Show loading timeout message
+  if (loadingTimeout) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner 
-          size="large" 
-          text="Loading tournament details..." 
-          subtext="Retrieving tournament information"
-        />
+      <div className="text-center py-12">
+        <h3 className="text-lg font-medium" style={{ color: 'var(--warning-orange)' }}>
+          Loading is taking longer than expected
+        </h3>
+        <p className="mt-2 mb-4" style={{ color: 'var(--text-subtle)' }}>
+          There might be an issue with the tournament data. You can try:
+        </p>
+        <div className="flex flex-col gap-3 items-center">
+          <button
+            onClick={() => {
+              setLoadingTimeout(false);
+              setLoading(true);
+              window.location.reload();
+            }}
+            className="btn btn-primary"
+          >
+            Refresh Page
+          </button>
+          <button
+            onClick={() => navigate('/tournaments')}
+            className="btn btn-ghost"
+          >
+            Go Back to Tournaments
+          </button>
+        </div>
       </div>
     );
   }

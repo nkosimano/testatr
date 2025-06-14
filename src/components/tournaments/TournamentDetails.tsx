@@ -1,22 +1,30 @@
-import React, { useState, useEffect } from 'react'
-import { ArrowLeft, Calendar, MapPin, Trophy, Users, Clock, Target, ChevronRight, CheckCircle, Play, Award, AlertTriangle } from 'lucide-react'
+import React, { useState, useEffect, useCallback } from 'react'
+import { 
+  ArrowLeft, 
+  Calendar, 
+  MapPin, 
+  Trophy, 
+  Users, 
+  Clock, 
+  Target, 
+  ChevronRight, 
+  CheckCircle, 
+  Play, 
+  Award, 
+  AlertTriangle,
+  Loader
+} from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import LoadingSpinner from '../LoadingSpinner'
 import { useAuthStore } from '../../stores/authStore'
+import LoadingSpinner from '../LoadingSpinner'
 import { apiClient } from '../../lib/aws'
 import type { Database } from '../../types/database'
 
-type Tournament = Database['public']['Tables']['tournaments']['Row'] & {
-  organizer?: { username: string; elo_rating: number }
-}
-type TournamentParticipant = Database['public']['Tables']['tournament_participants']['Row'] & {
-  player?: { username: string; elo_rating: number }
-}
 type Match = Database['public']['Tables']['matches']['Row'] & {
-  player1?: { username: string }
-  player2?: { username: string }
-  winner?: { username: string }
-}
+  player1?: { username: string; elo_rating: number };
+  player2?: { username: string; elo_rating: number };
+  winner?: { username: string };
+};
 
 interface TournamentDetailsProps {
   tournamentId: string
@@ -24,8 +32,8 @@ interface TournamentDetailsProps {
 }
 
 export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournamentId, onBack }) => {
-  const [tournament, setTournament] = useState<Tournament | null>(null)
-  const [participants, setParticipants] = useState<TournamentParticipant[]>([])
+  const [tournament, setTournament] = useState<any>(null)
+  const [participants, setParticipants] = useState<any[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [organizer, setOrganizer] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -36,121 +44,116 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
   const [error, setError] = useState<string | null>(null)
   const [isGeneratingBracket, setIsGeneratingBracket] = useState(false)
   const [bracketGenerationSuccess, setBracketGenerationSuccess] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   
-  const user = useAuthStore(state => state.user)
+  const { user } = useAuthStore()
+
+  const fetchTournamentDetails = useCallback(async () => {
+    if (!tournamentId) return;
+    
+    setLoading(true);
+    setFetchError(null);
+    try {
+      // Fetch tournament data
+      const { data: tournamentData, error: tournamentError } = await supabase
+        .from('tournaments')
+        .select(`
+          *,
+          organizer:profiles!tournaments_organizer_id_fkey(username, elo_rating)
+        `)
+        .eq('id', tournamentId)
+        .single();
+
+      if (tournamentError) throw tournamentError;
+      setTournament(tournamentData);
+      setOrganizer(tournamentData.organizer);
+
+      // Fetch participants
+      const { data: participantsData, error: participantsError } = await supabase
+        .from('tournament_participants')
+        .select(`
+          *,
+          player:profiles!tournament_participants_player_id_fkey(username, elo_rating)
+        `)
+        .eq('tournament_id', tournamentId)
+        .order('seed', { ascending: true });
+
+      if (participantsError) throw participantsError;
+      setParticipants(participantsData || []);
+
+      // Check if user is registered
+      if (user) {
+        const isUserRegistered = (participantsData || []).some(
+          p => p.player_id === user.id
+        );
+        setIsRegistered(isUserRegistered);
+      }
+
+      // Fetch tournament matches
+      const { data: matchesData, error: matchesError } = await supabase
+        .from('matches')
+        .select(`
+          *,
+          player1:profiles!matches_player1_id_fkey(username),
+          player2:profiles!matches_player2_id_fkey(username),
+          winner:profiles!matches_winner_id_fkey(username)
+        `)
+        .eq('tournament_id', tournamentId)
+        .order('date', { ascending: true });
+
+      if (matchesError) throw matchesError;
+      setMatches(matchesData || []);
+    } catch (err: any) {
+      console.error('Error fetching tournament details:', err);
+      setFetchError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [tournamentId, user]);
 
   useEffect(() => {
-    const fetchTournamentDetails = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        // Fetch tournament data
-        const { data: tournamentData, error: tournamentError } = await supabase
-          .from('tournaments')
-          .select(`
-            *,
-            organizer:profiles!tournaments_organizer_id_fkey(username, elo_rating)
-          `)
-          .eq('id', tournamentId)
-          .single()
+    fetchTournamentDetails();
+  }, [fetchTournamentDetails]);
 
-        if (tournamentError) throw tournamentError
-        setTournament(tournamentData)
-        setOrganizer(tournamentData.organizer)
-
-        // Fetch participants
-        const { data: participantsData, error: participantsError } = await supabase
-          .from('tournament_participants')
-          .select(`
-            *,
-            player:profiles!tournament_participants_player_id_fkey(username, elo_rating)
-          `)
-          .eq('tournament_id', tournamentId)
-          .order('seed', { ascending: true })
-
-        if (participantsError) throw participantsError
-        setParticipants(participantsData || [])
-
-        // Check if user is registered
-        if (user) {
-          const isUserRegistered = (participantsData || []).some(
-            p => p.player_id === user.id
-          )
-          setIsRegistered(isUserRegistered)
-        }
-
-        // Fetch tournament matches
-        const { data: matchesData, error: matchesError } = await supabase
-          .from('matches')
-          .select(`
-            *,
-            player1:profiles!matches_player1_id_fkey(username),
-            player2:profiles!matches_player2_id_fkey(username),
-            winner:profiles!matches_winner_id_fkey(username)
-          `)
-          .eq('tournament_id', tournamentId)
-          .order('date', { ascending: true })
-
-        if (matchesError) throw matchesError
-        setMatches(matchesData || [])
-      } catch (error: any) {
-        console.error('Error fetching tournament details:', error)
-        setError(error.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchTournamentDetails()
-
-    // Set up real-time subscription for tournament updates
-    const tournamentSubscription = supabase
-      .channel(`tournament-${tournamentId}`)
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'tournaments', filter: `id=eq.${tournamentId}` },
-        fetchTournamentDetails
-      )
-      .subscribe()
-      
-    // Set up real-time subscription for participants updates
-    const participantsSubscription = supabase
-      .channel(`tournament-participants-${tournamentId}`)
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'tournament_participants', filter: `tournament_id=eq.${tournamentId}` },
-        fetchTournamentDetails
-      )
-      .subscribe()
-      
-    // Set up real-time subscription for matches updates
-    const matchesSubscription = supabase
-      .channel(`tournament-matches-${tournamentId}`)
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'matches', filter: `tournament_id=eq.${tournamentId}` },
-        fetchTournamentDetails
-      )
-      .subscribe()
+  // Subscribe to real-time updates for this tournament
+  useEffect(() => {
+    if (!tournamentId) return;
     
+    const subscription = supabase
+      .channel(`tournament-${tournamentId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tournaments',
+          filter: `id=eq.${tournamentId}`
+        },
+        () => {
+          fetchTournamentDetails();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(tournamentSubscription)
-      supabase.removeChannel(participantsSubscription)
-      supabase.removeChannel(matchesSubscription)
-    }
-  }, [tournamentId, user])
+      supabase.removeChannel(subscription);
+    };
+  }, [tournamentId, fetchTournamentDetails]);
 
   const handleRegister = async () => {
-    if (!user || !tournament) return
-    setIsRegistering(true)
-    setError(null)
+    if (!user || !tournament) return;
+    setIsRegistering(true);
+    setError(null);
 
     try {
       // Check if tournament is full
       if (participants.length >= tournament.max_participants) {
-        throw new Error('Tournament is full')
+        throw new Error('Tournament is full');
       }
 
       // Check if tournament is still open for registration
       if (tournament.status !== 'registration_open') {
-        throw new Error('Registration is closed for this tournament')
+        throw new Error('Registration is closed for this tournament');
       }
 
       const { error } = await supabase
@@ -158,103 +161,106 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
         .insert({
           tournament_id: tournament.id,
           player_id: user.id
-        })
+        });
 
-      if (error) throw error
+      if (error) throw error;
 
-      setIsRegistered(true)
+      setIsRegistered(true);
+      fetchTournamentDetails(); // Refresh data
     } catch (error: any) {
-      console.error('Error registering for tournament:', error)
-      setError(`Failed to register: ${error.message}`)
+      console.error('Error registering for tournament:', error);
+      setError(`Failed to register: ${error.message}`);
     } finally {
-      setIsRegistering(false)
+      setIsRegistering(false);
     }
-  }
+  };
 
   const handleUnregister = async () => {
-    if (!user || !tournament) return
-    setIsUnregistering(true)
-    setError(null)
+    if (!user || !tournament) return;
+    setIsUnregistering(true);
+    setError(null);
 
     try {
       // Check if tournament is still open for registration
       if (tournament.status !== 'registration_open') {
-        throw new Error('You cannot withdraw from this tournament as it has already started')
+        throw new Error('You cannot withdraw from this tournament as it has already started');
       }
 
       const { error } = await supabase
         .from('tournament_participants')
         .delete()
         .eq('tournament_id', tournament.id)
-        .eq('player_id', user.id)
+        .eq('player_id', user.id);
 
-      if (error) throw error
+      if (error) throw error;
 
-      setIsRegistered(false)
+      setIsRegistered(false);
+      fetchTournamentDetails(); // Refresh data
     } catch (error: any) {
-      console.error('Error unregistering from tournament:', error)
-      setError(`Failed to withdraw: ${error.message}`)
+      console.error('Error unregistering from tournament:', error);
+      setError(`Failed to withdraw: ${error.message}`);
     } finally {
-      setIsUnregistering(false)
+      setIsUnregistering(false);
     }
-  }
+  };
 
   const handleGenerateBracket = async () => {
-    if (!tournament) return
-    setIsGeneratingBracket(true)
-    setError(null)
-    setBracketGenerationSuccess(false)
+    if (!tournament) return;
+    setIsGeneratingBracket(true);
+    setError(null);
+    setBracketGenerationSuccess(false);
 
     try {
       // Call the AWS Lambda function to generate the tournament bracket
-      const response = await apiClient.generateTournamentBracket(tournament.id)
+      const response = await apiClient.generateTournamentBracket(tournament.id);
       
       if (!response.success) {
-        throw new Error(response.error || 'Failed to generate bracket')
+        throw new Error(response.error || 'Failed to generate bracket');
       }
       
-      setBracketGenerationSuccess(true)
+      setBracketGenerationSuccess(true);
       
       // Refresh tournament data after a short delay
       setTimeout(() => {
-        setBracketGenerationSuccess(false)
-      }, 3000)
+        fetchTournamentDetails();
+        setBracketGenerationSuccess(false);
+      }, 3000);
     } catch (error: any) {
-      console.error('Error generating bracket:', error)
-      setError(`Failed to generate bracket: ${error.message}`)
+      console.error('Error generating bracket:', error);
+      setError(`Failed to generate bracket: ${error.message}`);
     } finally {
-      setIsGeneratingBracket(false)
+      setIsGeneratingBracket(false);
     }
-  }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'registration_open':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
       case 'registration_closed':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
       case 'in_progress':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
       case 'completed':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-400'
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-400';
       case 'cancelled':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-400'
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-400';
     }
-  }
+  };
 
   const formatStatus = (status: string) => {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-  }
+    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
 
-  const isTournamentFull = tournament && participants.length >= tournament.max_participants
-  const isUserOrganizer = tournament && user && tournament.organizer_id === user.id
+  const isTournamentFull = tournament && participants.length >= tournament.max_participants;
+  const isUserOrganizer = tournament && user && tournament.organizer_id === user.id;
   const canGenerateBracket = isUserOrganizer && 
                             tournament && 
                             (tournament.status === 'registration_closed' || 
                              (tournament.status === 'registration_open' && isTournamentFull)) && 
-                            matches.length === 0
+                            matches.length === 0;
 
   if (loading) {
     return (
@@ -265,13 +271,15 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
           subtext="Retrieving tournament information"
         />
       </div>
-    )
+    );
   }
 
-  if (error && !tournament) {
+  if (fetchError) {
     return (
       <div className="text-center py-12">
-        <h3 className="text-lg font-medium text-error-pink">Error: {error}</h3>
+        <h3 className="text-lg font-medium" style={{ color: 'var(--error-pink)' }}>
+          Error loading tournament: {fetchError}
+        </h3>
         <button
           onClick={onBack}
           className="mt-4 btn btn-primary"
@@ -279,13 +287,15 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
           Go Back
         </button>
       </div>
-    )
+    );
   }
 
   if (!tournament) {
     return (
       <div className="text-center py-12">
-        <h3 className="text-lg font-medium text-text-standard">Tournament not found</h3>
+        <h3 className="text-lg font-medium" style={{ color: 'var(--text-standard)' }}>
+          Tournament not found
+        </h3>
         <button
           onClick={onBack}
           className="mt-4 btn btn-primary"
@@ -293,7 +303,7 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
           Go Back
         </button>
       </div>
-    )
+    );
   }
 
   return (
@@ -361,7 +371,7 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
             >
               {isGeneratingBracket ? (
                 <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  <Loader className="animate-spin h-4 w-4 mr-2" />
                   Generating Bracket...
                 </div>
               ) : (
@@ -474,7 +484,7 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
                       >
                         {isUnregistering ? (
                           <div className="flex items-center">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            <Loader className="animate-spin h-4 w-4 mr-2" />
                             Processing...
                           </div>
                         ) : (
@@ -493,7 +503,7 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
                       >
                         {isRegistering ? (
                           <div className="flex items-center">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            <Loader className="animate-spin h-4 w-4 mr-2" />
                             Registering...
                           </div>
                         ) : (
@@ -590,7 +600,7 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
                     >
                       {isRegistering ? (
                         <div className="flex items-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          <Loader className="animate-spin h-4 w-4 mr-2" />
                           Registering...
                         </div>
                       ) : (
@@ -679,7 +689,7 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
                     >
                       {isGeneratingBracket ? (
                         <div className="flex items-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          <Loader className="animate-spin h-4 w-4 mr-2" />
                           Generating Bracket...
                         </div>
                       ) : (
@@ -716,6 +726,7 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
                         {match.status.replace('_', ' ')}
                       </div>
                     </div>
+                    
                     <div className="flex items-center text-sm mb-2" style={{ color: 'var(--text-subtle)' }}>
                       <Calendar className="h-4 w-4 mr-2" />
                       {new Date(match.date).toLocaleDateString()} at{' '}
