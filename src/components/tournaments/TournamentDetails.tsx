@@ -257,10 +257,10 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
   const isTournamentFull = tournament && participants.length >= tournament.max_participants;
   const isUserOrganizer = tournament && user && tournament.organizer_id === user.id;
   const canGenerateBracket = isUserOrganizer && 
-                            tournament && 
-                            (tournament.status === 'registration_closed' || 
-                             (tournament.status === 'registration_open' && isTournamentFull)) && 
-                            matches.length === 0;
+                             tournament && 
+                             (tournament.status === 'registration_closed' || 
+                              (tournament.status === 'registration_open' && isTournamentFull)) && 
+                             matches.length === 0;
 
   if (loading) {
     return (
@@ -362,16 +362,48 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
         )}
 
         {/* Generate Bracket Button for Organizers */}
-        {canGenerateBracket && (
+        {isUserOrganizer && isTournamentFull && tournament.status === 'registration_open' && (
+          <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-6 w-6 text-warning-orange flex-shrink-0 mt-1" />
+              <div>
+                <h3 className="text-lg font-semibold text-warning-orange mb-2">Tournament is Full</h3>
+                <p className="text-sm text-yellow-800 dark:text-yellow-400 mb-4">
+                  This tournament has reached its maximum number of participants. As the organizer, you can now generate the tournament bracket to start the competition.
+                </p>
+                <button
+                  onClick={handleGenerateBracket}
+                  disabled={isGeneratingBracket}
+                  className="btn btn-primary btn-lg w-full"
+                >
+                  {isGeneratingBracket ? (
+                    <div className="flex items-center justify-center">
+                      <Loader className="animate-spin h-5 w-5 mr-2" />
+                      Generating Tournament Bracket...
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <Play className="h-5 w-5 mr-2" />
+                      Generate Tournament Bracket & Start Tournament
+                    </div>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Generate Bracket Button for Organizers (when registration is closed) */}
+        {canGenerateBracket && tournament.status === 'registration_closed' && (
           <div className="mt-4">
             <button
               onClick={handleGenerateBracket}
               disabled={isGeneratingBracket}
-              className="btn btn-primary"
+              className="btn btn-primary btn-lg w-full"
             >
               {isGeneratingBracket ? (
-                <div className="flex items-center">
-                  <Loader className="animate-spin h-4 w-4 mr-2" />
+                <div className="flex items-center justify-center">
+                  <Loader className="animate-spin h-5 w-5 mr-2" />
                   Generating Bracket...
                 </div>
               ) : (
@@ -558,7 +590,7 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
               </div>
             </div>
 
-            {/* Auto-generation notice */}
+            {/* Bracket Generation Section */}
             <div className="bg-bg-elevated rounded-lg p-6">
               <h3 className="text-lg font-medium mb-4" style={{ color: 'var(--text-standard)' }}>Bracket Generation</h3>
               <div className="flex items-start">
@@ -574,6 +606,29 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
                     <li>The maximum number of participants ({tournament.max_participants}) is reached</li>
                     <li>Or when the tournament organizer manually starts the tournament</li>
                   </ul>
+                  
+                  {/* Manual Generate Button for Organizers */}
+                  {isUserOrganizer && isTournamentFull && tournament.status === 'registration_open' && (
+                    <div className="mt-6">
+                      <button
+                        onClick={handleGenerateBracket}
+                        disabled={isGeneratingBracket}
+                        className="btn btn-primary btn-lg w-full"
+                      >
+                        {isGeneratingBracket ? (
+                          <div className="flex items-center justify-center">
+                            <Loader className="animate-spin h-5 w-5 mr-2" />
+                            Generating Tournament Bracket...
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center">
+                            <Play className="h-5 w-5 mr-2" />
+                            Generate Tournament Bracket & Start Tournament
+                          </div>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -680,22 +735,22 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
                 </p>
                 
                 {/* Show Generate Bracket button for organizers if appropriate */}
-                {canGenerateBracket && (
+                {isUserOrganizer && isTournamentFull && tournament.status === 'registration_open' && (
                   <div className="mt-6">
                     <button
                       onClick={handleGenerateBracket}
                       disabled={isGeneratingBracket}
-                      className="btn btn-primary"
+                      className="btn btn-primary btn-lg"
                     >
                       {isGeneratingBracket ? (
                         <div className="flex items-center">
-                          <Loader className="animate-spin h-4 w-4 mr-2" />
-                          Generating Bracket...
+                          <Loader className="animate-spin h-5 w-5 mr-2" />
+                          Generating Tournament Bracket...
                         </div>
                       ) : (
                         <>
                           <Play className="h-5 w-5 mr-2" />
-                          Generate Tournament Bracket
+                          Generate Tournament Bracket & Start Tournament
                         </>
                       )}
                     </button>

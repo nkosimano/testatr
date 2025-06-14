@@ -1443,6 +1443,14 @@
   margin: 0;
 }
 
+/* Enhanced Generate Bracket Button */
+.btn-lg {
+  padding: 1rem 2rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  min-height: 56px;
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .tournaments-container,
