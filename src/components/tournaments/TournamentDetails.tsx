@@ -1,30 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { 
-  ArrowLeft, 
-  Calendar, 
-  MapPin, 
-  Trophy, 
-  Users, 
-  Clock, 
-  Target, 
-  ChevronRight, 
-  CheckCircle, 
-  Play, 
-  Award, 
-  AlertTriangle,
-  Loader
-} from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { ArrowLeft, Calendar, MapPin, Trophy, Users, Clock, Target, ChevronRight, CheckCircle, Play, Award, AlertTriangle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { useAuthStore } from '../../stores/authStore'
 import LoadingSpinner from '../LoadingSpinner'
+import { useAuthStore } from '../../stores/authStore'
 import { apiClient } from '../../lib/aws'
 import type { Database } from '../../types/database'
 
+type Tournament = Database['public']['Tables']['tournaments']['Row'] & {
+  organizer?: { username: string; elo_rating: number }
+}
+type TournamentParticipant = Database['public']['Tables']['tournament_participants']['Row'] & {
+  player?: { username: string; elo_rating: number }
+}
 type Match = Database['public']['Tables']['matches']['Row'] & {
-  player1?: { username: string; elo_rating: number };
-  player2?: { username: string; elo_rating: number };
-  winner?: { username: string };
-};
+  player1?: { username: string }
+  player2?: { username: string }
+  winner?: { username: string }
+}
 
 interface TournamentDetailsProps {
   tournamentId: string
@@ -32,8 +24,8 @@ interface TournamentDetailsProps {
 }
 
 export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournamentId, onBack }) => {
-  const [tournament, setTournament] = useState<any>(null)
-  const [participants, setParticipants] = useState<any[]>([])
+  const [tournament, setTournament] = useState<Tournament | null>(null)
+  const [participants, setParticipants] = useState<TournamentParticipant[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [organizer, setOrganizer] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -44,116 +36,122 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
   const [error, setError] = useState<string | null>(null)
   const [isGeneratingBracket, setIsGeneratingBracket] = useState(false)
   const [bracketGenerationSuccess, setBracketGenerationSuccess] = useState(false)
-  const [fetchError, setFetchError] = useState<string | null>(null)
+  const [isClosingRegistration, setIsClosingRegistration] = useState(false)
   
-  const { user } = useAuthStore()
-
-  const fetchTournamentDetails = useCallback(async () => {
-    if (!tournamentId) return;
-    
-    setLoading(true);
-    setFetchError(null);
-    try {
-      // Fetch tournament data
-      const { data: tournamentData, error: tournamentError } = await supabase
-        .from('tournaments')
-        .select(`
-          *,
-          organizer:profiles!tournaments_organizer_id_fkey(username, elo_rating)
-        `)
-        .eq('id', tournamentId)
-        .single();
-
-      if (tournamentError) throw tournamentError;
-      setTournament(tournamentData);
-      setOrganizer(tournamentData.organizer);
-
-      // Fetch participants
-      const { data: participantsData, error: participantsError } = await supabase
-        .from('tournament_participants')
-        .select(`
-          *,
-          player:profiles!tournament_participants_player_id_fkey(username, elo_rating)
-        `)
-        .eq('tournament_id', tournamentId)
-        .order('seed', { ascending: true });
-
-      if (participantsError) throw participantsError;
-      setParticipants(participantsData || []);
-
-      // Check if user is registered
-      if (user) {
-        const isUserRegistered = (participantsData || []).some(
-          p => p.player_id === user.id
-        );
-        setIsRegistered(isUserRegistered);
-      }
-
-      // Fetch tournament matches
-      const { data: matchesData, error: matchesError } = await supabase
-        .from('matches')
-        .select(`
-          *,
-          player1:profiles!matches_player1_id_fkey(username),
-          player2:profiles!matches_player2_id_fkey(username),
-          winner:profiles!matches_winner_id_fkey(username)
-        `)
-        .eq('tournament_id', tournamentId)
-        .order('date', { ascending: true });
-
-      if (matchesError) throw matchesError;
-      setMatches(matchesData || []);
-    } catch (err: any) {
-      console.error('Error fetching tournament details:', err);
-      setFetchError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [tournamentId, user]);
+  const user = useAuthStore(state => state.user)
 
   useEffect(() => {
-    fetchTournamentDetails();
-  }, [fetchTournamentDetails]);
+    const fetchTournamentDetails = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        // Fetch tournament data
+        const { data: tournamentData, error: tournamentError } = await supabase
+          .from('tournaments')
+          .select(`
+            *,
+            organizer:profiles!tournaments_organizer_id_fkey(username, elo_rating)
+          `)
+          .eq('id', tournamentId)
+          .single()
 
-  // Subscribe to real-time updates for this tournament
-  useEffect(() => {
-    if (!tournamentId) return;
-    
-    const subscription = supabase
-      .channel(`tournament-${tournamentId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'tournaments',
-          filter: `id=eq.${tournamentId}`
-        },
-        () => {
-          fetchTournamentDetails();
+        if (tournamentError) throw tournamentError
+        setTournament(tournamentData)
+        setOrganizer(tournamentData.organizer)
+
+        // Fetch participants
+        const { data: participantsData, error: participantsError } = await supabase
+          .from('tournament_participants')
+          .select(`
+            *,
+            player:profiles!tournament_participants_player_id_fkey(username, elo_rating)
+          `)
+          .eq('tournament_id', tournamentId)
+          .order('seed', { ascending: true })
+
+        if (participantsError) throw participantsError
+        setParticipants(participantsData || [])
+
+        // Check if user is registered
+        if (user) {
+          const isUserRegistered = (participantsData || []).some(
+            p => p.player_id === user.id
+          )
+          setIsRegistered(isUserRegistered)
         }
-      )
-      .subscribe();
 
+        // Fetch tournament matches
+        const { data: matchesData, error: matchesError } = await supabase
+          .from('matches')
+          .select(`
+            *,
+            player1:profiles!matches_player1_id_fkey(username),
+            player2:profiles!matches_player2_id_fkey(username),
+            winner:profiles!matches_winner_id_fkey(username)
+          `)
+          .eq('tournament_id', tournamentId)
+          .order('date', { ascending: true })
+
+        if (matchesError) throw matchesError
+        setMatches(matchesData || [])
+      } catch (error: any) {
+        console.error('Error fetching tournament details:', error)
+        setError(error.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchTournamentDetails()
+
+    // Set up real-time subscription for tournament updates
+    const tournamentSubscription = supabase
+      .channel(`tournament-${tournamentId}`)
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'tournaments', filter: `id=eq.${tournamentId}` },
+        fetchTournamentDetails
+      )
+      .subscribe()
+      
+    // Set up real-time subscription for participants updates
+    const participantsSubscription = supabase
+      .channel(`tournament-participants-${tournamentId}`)
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'tournament_participants', filter: `tournament_id=eq.${tournamentId}` },
+        fetchTournamentDetails
+      )
+      .subscribe()
+      
+    // Set up real-time subscription for matches updates
+    const matchesSubscription = supabase
+      .channel(`tournament-matches-${tournamentId}`)
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'matches', filter: `tournament_id=eq.${tournamentId}` },
+        fetchTournamentDetails
+      )
+      .subscribe()
+    
     return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, [tournamentId, fetchTournamentDetails]);
+      supabase.removeChannel(tournamentSubscription)
+      supabase.removeChannel(participantsSubscription)
+      supabase.removeChannel(matchesSubscription)
+    }
+  }, [tournamentId, user])
 
   const handleRegister = async () => {
-    if (!user || !tournament) return;
-    setIsRegistering(true);
-    setError(null);
+    if (!user || !tournament) return
+    setIsRegistering(true)
+    setError(null)
 
     try {
       // Check if tournament is full
       if (participants.length >= tournament.max_participants) {
-        throw new Error('Tournament is full');
+        throw new Error('Tournament is full')
       }
 
       // Check if tournament is still open for registration
       if (tournament.status !== 'registration_open') {
-        throw new Error('Registration is closed for this tournament');
+        throw new Error('Registration is closed for this tournament')
       }
 
       const { error } = await supabase
@@ -161,106 +159,162 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
         .insert({
           tournament_id: tournament.id,
           player_id: user.id
-        });
+        })
 
-      if (error) throw error;
+      if (error) throw error
 
-      setIsRegistered(true);
-      fetchTournamentDetails(); // Refresh data
+      setIsRegistered(true)
     } catch (error: any) {
-      console.error('Error registering for tournament:', error);
-      setError(`Failed to register: ${error.message}`);
+      console.error('Error registering for tournament:', error)
+      setError(`Failed to register: ${error.message}`)
     } finally {
-      setIsRegistering(false);
+      setIsRegistering(false)
     }
-  };
+  }
 
   const handleUnregister = async () => {
-    if (!user || !tournament) return;
-    setIsUnregistering(true);
-    setError(null);
+    if (!user || !tournament) return
+    setIsUnregistering(true)
+    setError(null)
 
     try {
       // Check if tournament is still open for registration
       if (tournament.status !== 'registration_open') {
-        throw new Error('You cannot withdraw from this tournament as it has already started');
+        throw new Error('You cannot withdraw from this tournament as it has already started')
       }
 
       const { error } = await supabase
         .from('tournament_participants')
         .delete()
         .eq('tournament_id', tournament.id)
-        .eq('player_id', user.id);
+        .eq('player_id', user.id)
 
-      if (error) throw error;
+      if (error) throw error
 
-      setIsRegistered(false);
-      fetchTournamentDetails(); // Refresh data
+      setIsRegistered(false)
     } catch (error: any) {
-      console.error('Error unregistering from tournament:', error);
-      setError(`Failed to withdraw: ${error.message}`);
+      console.error('Error unregistering from tournament:', error)
+      setError(`Failed to withdraw: ${error.message}`)
     } finally {
-      setIsUnregistering(false);
+      setIsUnregistering(false)
     }
-  };
+  }
+
+  const handleCloseRegistration = async () => {
+    if (!tournament) return
+    setIsClosingRegistration(true)
+    setError(null)
+
+    try {
+      // Update tournament status to registration_closed
+      const { error } = await supabase
+        .from('tournaments')
+        .update({ status: 'registration_closed' })
+        .eq('id', tournament.id)
+
+      if (error) throw error
+
+      // Wait for a moment to let the status update propagate
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // Now generate the bracket
+      await handleGenerateBracket()
+    } catch (error: any) {
+      console.error('Error closing registration:', error)
+      setError(`Failed to close registration: ${error.message}`)
+    } finally {
+      setIsClosingRegistration(false)
+    }
+  }
 
   const handleGenerateBracket = async () => {
-    if (!tournament) return;
-    setIsGeneratingBracket(true);
-    setError(null);
-    setBracketGenerationSuccess(false);
+    if (!tournament) return
+    setIsGeneratingBracket(true)
+    setError(null)
+    setBracketGenerationSuccess(false)
 
     try {
       // Call the AWS Lambda function to generate the tournament bracket
-      const response = await apiClient.generateTournamentBracket(tournament.id);
+      const response = await apiClient.generateTournamentBracket(tournament.id)
       
       if (!response.success) {
-        throw new Error(response.error || 'Failed to generate bracket');
+        throw new Error(response.error || 'Failed to generate bracket')
       }
       
-      setBracketGenerationSuccess(true);
+      setBracketGenerationSuccess(true)
       
       // Refresh tournament data after a short delay
       setTimeout(() => {
-        fetchTournamentDetails();
-        setBracketGenerationSuccess(false);
-      }, 3000);
+        setBracketGenerationSuccess(false)
+      }, 3000)
     } catch (error: any) {
-      console.error('Error generating bracket:', error);
-      setError(`Failed to generate bracket: ${error.message}`);
+      console.error('Error generating bracket:', error)
+      setError(`Failed to generate bracket: ${error.message}`)
     } finally {
-      setIsGeneratingBracket(false);
+      setIsGeneratingBracket(false)
     }
-  };
+  }
+
+  const handleManuallyStartTournament = async () => {
+    if (!tournament) return
+    setIsGeneratingBracket(true)
+    setError(null)
+    setBracketGenerationSuccess(false)
+
+    try {
+      // Call the manually_start_tournament function via RPC
+      const { data, error } = await supabase.rpc('manually_start_tournament', {
+        tournament_id: tournament.id
+      })
+      
+      if (error) throw error
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to start tournament')
+      }
+      
+      setBracketGenerationSuccess(true)
+      
+      // Refresh tournament data after a short delay
+      setTimeout(() => {
+        setBracketGenerationSuccess(false)
+      }, 3000)
+    } catch (error: any) {
+      console.error('Error starting tournament:', error)
+      setError(`Failed to start tournament: ${error.message}`)
+    } finally {
+      setIsGeneratingBracket(false)
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'registration_open':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
       case 'registration_closed':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
       case 'in_progress':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
       case 'completed':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-400';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-400'
       case 'cancelled':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-400';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-400'
     }
-  };
+  }
 
   const formatStatus = (status: string) => {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
+    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  }
 
-  const isTournamentFull = tournament && participants.length >= tournament.max_participants;
-  const isUserOrganizer = tournament && user && tournament.organizer_id === user.id;
+  const isTournamentFull = tournament && participants.length >= tournament.max_participants
+  const isUserOrganizer = tournament && user && tournament.organizer_id === user.id
   const canGenerateBracket = isUserOrganizer && 
-                             tournament && 
-                             (tournament.status === 'registration_closed' || 
-                              (tournament.status === 'registration_open' && isTournamentFull)) && 
-                             matches.length === 0;
+                            tournament && 
+                            (tournament.status === 'registration_closed' || 
+                             (tournament.status === 'registration_open' && isTournamentFull)) && 
+                            matches.length === 0
 
   if (loading) {
     return (
@@ -271,15 +325,13 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
           subtext="Retrieving tournament information"
         />
       </div>
-    );
+    )
   }
 
-  if (fetchError) {
+  if (error && !tournament) {
     return (
       <div className="text-center py-12">
-        <h3 className="text-lg font-medium" style={{ color: 'var(--error-pink)' }}>
-          Error loading tournament: {fetchError}
-        </h3>
+        <h3 className="text-lg font-medium text-error-pink">Error: {error}</h3>
         <button
           onClick={onBack}
           className="mt-4 btn btn-primary"
@@ -287,15 +339,13 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
           Go Back
         </button>
       </div>
-    );
+    )
   }
 
   if (!tournament) {
     return (
       <div className="text-center py-12">
-        <h3 className="text-lg font-medium" style={{ color: 'var(--text-standard)' }}>
-          Tournament not found
-        </h3>
+        <h3 className="text-lg font-medium text-text-standard">Tournament not found</h3>
         <button
           onClick={onBack}
           className="mt-4 btn btn-primary"
@@ -303,7 +353,7 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
           Go Back
         </button>
       </div>
-    );
+    )
   }
 
   return (
@@ -361,49 +411,64 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
           </div>
         )}
 
-        {/* Generate Bracket Button for Organizers */}
-        {isUserOrganizer && isTournamentFull && tournament.status === 'registration_open' && (
-          <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-6 w-6 text-warning-orange flex-shrink-0 mt-1" />
-              <div>
-                <h3 className="text-lg font-semibold text-warning-orange mb-2">Tournament is Full</h3>
-                <p className="text-sm text-yellow-800 dark:text-yellow-400 mb-4">
-                  This tournament has reached its maximum number of participants. As the organizer, you can now generate the tournament bracket to start the competition.
-                </p>
-                <button
-                  onClick={handleGenerateBracket}
-                  disabled={isGeneratingBracket}
-                  className="btn btn-primary btn-lg w-full"
-                >
-                  {isGeneratingBracket ? (
-                    <div className="flex items-center justify-center">
-                      <Loader className="animate-spin h-5 w-5 mr-2" />
-                      Generating Tournament Bracket...
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center">
-                      <Play className="h-5 w-5 mr-2" />
-                      Generate Tournament Bracket & Start Tournament
-                    </div>
-                  )}
-                </button>
-              </div>
+        {/* Organizer Actions */}
+        {isUserOrganizer && tournament.status === 'registration_open' && (
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <h3 className="text-lg font-medium text-blue-800 dark:text-blue-400 mb-2">Organizer Actions</h3>
+            <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
+              As the tournament organizer, you can manually close registration and generate the bracket.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={handleCloseRegistration}
+                disabled={isClosingRegistration || isGeneratingBracket}
+                className="btn btn-primary"
+              >
+                {isClosingRegistration ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Closing Registration...
+                  </div>
+                ) : (
+                  <>
+                    <Clock className="h-5 w-5 mr-2" />
+                    Close Registration & Generate Bracket
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={handleManuallyStartTournament}
+                disabled={isGeneratingBracket || isClosingRegistration}
+                className="btn btn-secondary"
+              >
+                {isGeneratingBracket ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                    Starting Tournament...
+                  </div>
+                ) : (
+                  <>
+                    <Play className="h-5 w-5 mr-2" />
+                    Start Tournament
+                  </>
+                )}
+              </button>
             </div>
           </div>
         )}
 
-        {/* Generate Bracket Button for Organizers (when registration is closed) */}
-        {canGenerateBracket && tournament.status === 'registration_closed' && (
+        {/* Generate Bracket Button for Organizers */}
+        {canGenerateBracket && (
           <div className="mt-4">
             <button
               onClick={handleGenerateBracket}
               disabled={isGeneratingBracket}
-              className="btn btn-primary btn-lg w-full"
+              className="btn btn-primary"
             >
               {isGeneratingBracket ? (
-                <div className="flex items-center justify-center">
-                  <Loader className="animate-spin h-5 w-5 mr-2" />
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   Generating Bracket...
                 </div>
               ) : (
@@ -516,7 +581,7 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
                       >
                         {isUnregistering ? (
                           <div className="flex items-center">
-                            <Loader className="animate-spin h-4 w-4 mr-2" />
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                             Processing...
                           </div>
                         ) : (
@@ -535,7 +600,7 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
                       >
                         {isRegistering ? (
                           <div className="flex items-center">
-                            <Loader className="animate-spin h-4 w-4 mr-2" />
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                             Registering...
                           </div>
                         ) : (
@@ -590,7 +655,7 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
               </div>
             </div>
 
-            {/* Bracket Generation Section */}
+            {/* Auto-generation notice */}
             <div className="bg-bg-elevated rounded-lg p-6">
               <h3 className="text-lg font-medium mb-4" style={{ color: 'var(--text-standard)' }}>Bracket Generation</h3>
               <div className="flex items-start">
@@ -606,29 +671,6 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
                     <li>The maximum number of participants ({tournament.max_participants}) is reached</li>
                     <li>Or when the tournament organizer manually starts the tournament</li>
                   </ul>
-                  
-                  {/* Manual Generate Button for Organizers */}
-                  {isUserOrganizer && isTournamentFull && tournament.status === 'registration_open' && (
-                    <div className="mt-6">
-                      <button
-                        onClick={handleGenerateBracket}
-                        disabled={isGeneratingBracket}
-                        className="btn btn-primary btn-lg w-full"
-                      >
-                        {isGeneratingBracket ? (
-                          <div className="flex items-center justify-center">
-                            <Loader className="animate-spin h-5 w-5 mr-2" />
-                            Generating Tournament Bracket...
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center">
-                            <Play className="h-5 w-5 mr-2" />
-                            Generate Tournament Bracket & Start Tournament
-                          </div>
-                        )}
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -655,7 +697,7 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
                     >
                       {isRegistering ? (
                         <div className="flex items-center">
-                          <Loader className="animate-spin h-4 w-4 mr-2" />
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                           Registering...
                         </div>
                       ) : (
@@ -735,22 +777,47 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
                 </p>
                 
                 {/* Show Generate Bracket button for organizers if appropriate */}
-                {isUserOrganizer && isTournamentFull && tournament.status === 'registration_open' && (
+                {isUserOrganizer && tournament.status === 'registration_open' && (
+                  <div className="mt-6">
+                    <button
+                      onClick={handleCloseRegistration}
+                      disabled={isClosingRegistration || isGeneratingBracket}
+                      className="btn btn-primary"
+                    >
+                      {isClosingRegistration ? (
+                        <div className="flex items-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Closing Registration...
+                        </div>
+                      ) : (
+                        <>
+                          <Clock className="h-5 w-5 mr-2" />
+                          Close Registration & Generate Bracket
+                        </>
+                      )}
+                    </button>
+                    <p className="mt-2 text-sm" style={{ color: 'var(--text-subtle)' }}>
+                      As the tournament organizer, you can manually close registration and generate the bracket.
+                    </p>
+                  </div>
+                )}
+                
+                {canGenerateBracket && (
                   <div className="mt-6">
                     <button
                       onClick={handleGenerateBracket}
                       disabled={isGeneratingBracket}
-                      className="btn btn-primary btn-lg"
+                      className="btn btn-primary"
                     >
                       {isGeneratingBracket ? (
                         <div className="flex items-center">
-                          <Loader className="animate-spin h-5 w-5 mr-2" />
-                          Generating Tournament Bracket...
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Generating Bracket...
                         </div>
                       ) : (
                         <>
                           <Play className="h-5 w-5 mr-2" />
-                          Generate Tournament Bracket & Start Tournament
+                          Generate Tournament Bracket
                         </>
                       )}
                     </button>
@@ -781,7 +848,6 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
                         {match.status.replace('_', ' ')}
                       </div>
                     </div>
-                    
                     <div className="flex items-center text-sm mb-2" style={{ color: 'var(--text-subtle)' }}>
                       <Calendar className="h-4 w-4 mr-2" />
                       {new Date(match.date).toLocaleDateString()} at{' '}
