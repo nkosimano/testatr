@@ -153,6 +153,40 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
     }
   };
 
+  const handleUndo = () => {
+    if (scoreHistory.length > 1 && !isSubmitting) {
+      setIsSubmitting(true);
+      setError(null);
+      
+      try {
+        // Remove the current score and go back to the previous one
+        const newHistory = [...scoreHistory];
+        newHistory.pop(); // Remove current score
+        const previousScore = newHistory[newHistory.length - 1];
+        
+        // Update the match with the previous score
+        updateMatch.mutate({
+          id: match.id,
+          updates: {
+            score: previousScore
+          }
+        }, {
+          onSuccess: () => {
+            setScoreHistory(newHistory);
+          },
+          onError: (err: any) => {
+            setError(err.message || 'Failed to undo last point');
+          }
+        });
+      } catch (err: any) {
+        console.error('Error undoing point:', err);
+        setError(err.message || 'Failed to undo last point');
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+  };
+
   const handleEndMatch = async () => {
     setConfirmEndMatch(true);
   };
@@ -178,25 +212,6 @@ export const MatchScoring: React.FC<MatchScoringProps> = ({ match, onBack }) => 
     } finally {
       setIsSubmitting(false);
       setConfirmEndMatch(false);
-    }
-  };
-
-  const handleUndo = () => {
-    if (scoreHistory.length > 1) {
-      // Remove the current score and go back to the previous one
-      const newHistory = [...scoreHistory];
-      newHistory.pop(); // Remove current score
-      const previousScore = newHistory[newHistory.length - 1];
-      
-      // Update the match with the previous score
-      updateMatch.mutate({
-        id: match.id,
-        updates: {
-          score: previousScore
-        }
-      });
-      
-      setScoreHistory(newHistory);
     }
   };
 

@@ -31,6 +31,7 @@ export interface Match {
   detailedStatsId?: string; // Link to detailed statistics
   score?: any; // JSONB score object for tennis scoring
   scoreDisplay?: string | null; // Formatted score string for display
+  tournamentId?: string; // ID of the tournament this match belongs to
 }
 
 export interface Tournament {
