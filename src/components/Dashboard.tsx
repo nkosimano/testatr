@@ -1,8 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Target, Zap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import MatchModal from './MatchModal';
-import { useState } from 'react';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();

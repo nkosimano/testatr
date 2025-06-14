@@ -17,6 +17,20 @@ const updateTournamentFn = async ({ id, updates }: { id: string; updates: Tourna
 };
 
 const registerForTournamentFn = async ({ tournamentId, playerId }: { tournamentId: string; playerId: string }) => {
+  // Check if the player is already registered
+  const { data: existingRegistration, error: checkError } = await supabase
+    .from('tournament_participants')
+    .select('id')
+    .eq('tournament_id', tournamentId)
+    .eq('player_id', playerId)
+    .maybeSingle();
+    
+  if (checkError) throw checkError;
+  
+  // If already registered, don't try to register again
+  if (existingRegistration) return existingRegistration;
+  
+  // Register the player
   const { error } = await supabase.from('tournament_participants').insert({ tournament_id: tournamentId, player_id: playerId });
   if (error) throw error;
 };
@@ -38,9 +52,9 @@ export const useTournamentMutations = () => {
 
   const updateTournament = useMutation({
     mutationFn: updateTournamentFn,
-    onSuccess: (_, variables) => {
+    onSuccess: (_, _variables) => {
       queryClient.invalidateQueries({ queryKey: ['tournaments'] });
-      queryClient.invalidateQueries({ queryKey: ['tournament', variables.id] });
+      // Also invalidate the specific tournament details if you have a query for that
     },
   });
 

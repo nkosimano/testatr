@@ -2,7 +2,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
-// Player data structure
 interface RankingPlayer {
   user_id: string;
   username: string;
@@ -16,31 +15,43 @@ interface RankingPlayer {
   profile_picture_url?: string | null;
 }
 
-// Key for browser's local storage
 const RANKINGS_STORAGE_KEY = 'africa-tennis-previous-rankings';
 
-/**
- * Compares new rankings with previous rankings to determine changes.
- * This is a pure utility function for the comparison logic.
- */
-const calculateRankChanges = (
-  newRankings: RankingPlayer[],
-  previousRankings: RankingPlayer[] | null
-): RankingPlayer[] => {
-  if (!previousRankings || previousRankings.length === 0) {
-    return newRankings.map((p) => ({ ...p, rankChange: 'new', rankChangeValue: 0 }));
+const fetchRankings = async (): Promise<RankingPlayer[]> => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('user_id, username, elo_rating, matches_played, matches_won, skill_level, profile_picture_url')
+    .order('elo_rating', { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
   }
 
-  const previousRankingsMap = new Map(
-    previousRankings.map((player) => [player.user_id, player])
-  );
+  // Add rank to each player
+  return data.map((player, index) => ({
+    ...player,
+    rank: index + 1
+  }));
+};
 
-  return newRankings.map((player) => {
-    const prevPlayer = previousRankingsMap.get(player.user_id);
+// Pure function to calculate rank changes
+const calculateRankChanges = (
+  newRankings: RankingPlayer[],
+  previousRankings: RankingPlayer[]
+): RankingPlayer[] => {
+  // Create a Map for O(1) lookups of previous rankings
+  const prevRankingsMap = new Map<string, RankingPlayer>();
+  previousRankings.forEach(player => {
+    prevRankingsMap.set(player.user_id, player);
+  });
+  
+  return newRankings.map(player => {
+    const prevPlayer = prevRankingsMap.get(player.user_id);
+    
     let rankChange: 'up' | 'down' | 'same' | 'new' = 'new';
     let rankChangeValue = 0;
-
-    if (prevPlayer && player.rank != null && prevPlayer.rank != null) {
+    
+    if (prevPlayer && player.rank && prevPlayer.rank) {
       if (player.rank < prevPlayer.rank) {
         rankChange = 'up';
         rankChangeValue = prevPlayer.rank - player.rank;
@@ -52,66 +63,49 @@ const calculateRankChanges = (
       }
     }
     
-    return { ...player, rankChange, rankChangeValue };
+    return {
+      ...player,
+      rankChange,
+      rankChangeValue
+    };
   });
 };
 
-/**
- * Fetches player profiles from Supabase and assigns rank based on ELO.
- */
-const fetchRankings = async (): Promise<RankingPlayer[]> => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('user_id, username, elo_rating, matches_played, matches_won, skill_level, profile_picture_url')
-    .order('elo_rating', { ascending: false });
-
-  if (error) throw new Error(error.message);
-
-  return data.map((player, index) => ({ ...player, rank: index + 1 }));
-};
-
-/**
- * The primary custom hook for the rankings feature.
- */
 export const useRankings = () => {
   const queryClient = useQueryClient();
 
-  // Read previous session's data from localStorage ONCE, before the query runs.
-  const previousRankings = (() => {
-    try {
-      const stored = localStorage.getItem(RANKINGS_STORAGE_KEY);
-      return stored ? (JSON.parse(stored) as RankingPlayer[]) : null;
-    } catch (error) {
-      console.error('Failed to parse previous rankings:', error);
-      localStorage.removeItem(RANKINGS_STORAGE_KEY);
-      return null;
-    }
-  })();
-
-  const queryResult = useQuery({
+  const result = useQuery({
     queryKey: ['rankings'],
     queryFn: fetchRankings,
-    staleTime: 60000,
+    staleTime: 60000, // 1 minute
     refetchOnWindowFocus: false,
-
-    // Use `select` to transform the data before it's returned to the component.
-    // This function uses the `previousRankings` variable captured from the hook's outer scope.
-    select: (newRankings: RankingPlayer[]): RankingPlayer[] => {
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    select: (newRankings) => {
+      // Load previous rankings from localStorage
+      let previousRankings: RankingPlayer[] = [];
+      try {
+        const stored = localStorage.getItem(RANKINGS_STORAGE_KEY);
+        if (stored) {
+          previousRankings = JSON.parse(stored);
+        }
+      } catch (error) {
+        console.error('Error loading previous rankings:', error);
+        localStorage.removeItem(RANKINGS_STORAGE_KEY);
+      }
+      
+      // Calculate and return rankings with changes
       return calculateRankChanges(newRankings, previousRankings);
     },
-
-    // Use `onSuccess` as a side-effect to reliably save the newly fetched data
-    // for the next session. This receives the raw, untransformed data.
-    onSuccess: (data: RankingPlayer[]) => {
-      try {
-        localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(data));
-      } catch (error) {
-        console.error('Failed to save current rankings:', error);
-      }
-    },
+    onSuccess: (data) => {
+      // Save the original rankings (without change indicators) to localStorage
+      // This ensures we're always comparing against the most recent successful fetch
+      const originalRankings = data.map(({ rankChange, rankChangeValue, ...player }) => player);
+      localStorage.setItem(RANKINGS_STORAGE_KEY, JSON.stringify(originalRankings));
+    }
   });
 
-  // Real-time subscription to invalidate the query on profile updates.
+  // Set up real-time subscription to rankings changes
   useEffect(() => {
     const channel = supabase
       .channel('rankings-changes')
@@ -121,7 +115,7 @@ export const useRankings = () => {
           event: 'UPDATE',
           schema: 'public',
           table: 'profiles',
-          columns: ['elo_rating', 'matches_played', 'matches_won'],
+          columns: ['elo_rating', 'matches_played', 'matches_won']
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ['rankings'] });
@@ -135,7 +129,7 @@ export const useRankings = () => {
   }, [queryClient]);
 
   return {
-    ...queryResult,
-    rankings: queryResult.data || [],
+    ...result,
+    rankings: result.data || []
   };
 };
