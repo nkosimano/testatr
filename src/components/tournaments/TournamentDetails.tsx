@@ -270,7 +270,7 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
       if (error) throw error
       
       if (!data.success) {
-        throw new Error(data.error || 'Failed to start tournament')
+        throw new Error(data.error || 'We encountered an issue starting the tournament. Please try again or contact support if the problem persists.')
       }
       
       setBracketGenerationSuccess(true)
@@ -281,7 +281,7 @@ export const TournamentDetails: React.FC<TournamentDetailsProps> = ({ tournament
       }, 3000)
     } catch (error: any) {
       console.error('Error starting tournament:', error)
-      setError(`Failed to start tournament: ${error.message}`)
+      setError(`We couldn't start the tournament: ${error.message}. Please check the tournament details and try again.`)
     } finally {
       setIsGeneratingBracket(false)
     }

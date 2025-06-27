@@ -164,7 +164,7 @@ const UmpirePage: React.FC = () => {
       const response = await apiClient.generateTournamentBracket(tournamentToStart.id);
       
       if (!response.success) {
-        throw new Error(response.error || 'Failed to start tournament');
+        throw new Error(response.error || 'We encountered an issue starting the tournament. Please try again or contact support if the problem persists.');
       }
       
       // Refresh tournaments and matches
@@ -177,7 +177,7 @@ const UmpirePage: React.FC = () => {
       setTournamentToStart(null);
     } catch (error: any) {
       console.error('Error starting tournament:', error);
-      alert(`Failed to start tournament: ${error.message}`);
+      alert(`We couldn't start the tournament: ${error.message}. Please check the tournament details and try again.`);
     }
   };
 
